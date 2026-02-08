@@ -37,3 +37,6 @@ Pillow==11.0.0
 # STT/TTS
 requests==2.32.3
 
+
+# Reranking
+sentence-transformers==3.0.1

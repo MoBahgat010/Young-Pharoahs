@@ -17,6 +17,7 @@ from app.services import (
     LLMService,
     STTService,
     TTSService,
+    RerankerService,
 )
 from app.utils.image import upload_files_to_pil_images, validate_image_count
 from app.utils.prompt import (
@@ -40,6 +41,7 @@ class ServiceContainer:
         vision_service: VisionService,
         vector_store_service: VectorStoreService,
         llm_service: LLMService,
+        reranker_service: RerankerService,
         stt_service: Optional[STTService] = None,
         tts_service: Optional[TTSService] = None,
     ):
@@ -47,6 +49,7 @@ class ServiceContainer:
         self.vision_service = vision_service
         self.vector_store_service = vector_store_service
         self.llm_service = llm_service
+        self.reranker_service = reranker_service
         self.stt_service = stt_service
         self.tts_service = tts_service
 
@@ -135,8 +138,15 @@ async def query_rag(
     # Perform vector search
     try:
         k = top_k or settings.top_k
-        results = services.vector_store_service.similarity_search(search_query, k=k)
-        logger.info(f"Retrieved {len(results)} documents")
+        # Retrieve more candidates for reranking
+        initial_k = min(k * 4, 100)
+        results = services.vector_store_service.similarity_search(search_query, k=initial_k)
+        logger.info(f"Retrieved {len(results)} initial documents")
+        
+        # Rerank results
+        results = services.reranker_service.rerank(search_query, results, top_k=k)
+        logger.info(f"Reranked to top {len(results)} documents")
+        
     except ValueError as e:
         logger.error(f"Invalid top_k value: {e}")
         raise HTTPException(status_code=400, detail=str(e))

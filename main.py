@@ -23,6 +23,7 @@ from app.services import (
     LLMService,
     STTService,
     TTSService,
+    RerankerService,
 )
 from app.routers import (
     query_router,
@@ -79,6 +80,10 @@ async def lifespan(app: FastAPI):
 
         # 6. TTS Service
         tts_service = TTSService(settings)
+
+        # 7. Reranker Service
+        reranker_service = RerankerService(settings)
+        reranker_service.initialize()
         
         # Create service container and inject into routers
         container = ServiceContainer(
@@ -86,6 +91,7 @@ async def lifespan(app: FastAPI):
             vision_service=vision_service,
             vector_store_service=vector_store_service,
             llm_service=llm_service,
+            reranker_service=reranker_service,
             stt_service=stt_service,
             tts_service=tts_service,
         )
