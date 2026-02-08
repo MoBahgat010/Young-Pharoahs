@@ -1,13 +1,39 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-python-multipart
-torch
-google-generativeai
-langchain-huggingface
-langchain-pinecone
-langchain-community
-langchain-text-splitters
-pinecone
-pypdf
-Pillow
+# ============================================
+# Core Dependencies (Pinned Versions)
+# ============================================
+
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+
+# Configuration
+python-dotenv==1.0.1
+pydantic-settings==2.6.1
+
+# Machine Learning
+torch==2.5.1
+
+# Google Gemini
+google-generativeai==0.8.3
+
+# LangChain Ecosystem
+langchain-core==0.3.20
+langchain-huggingface==0.1.2
+langchain-pinecone==0.2.0
+langchain-community==0.3.8
+langchain-text-splitters==0.3.2
+
+# Vector Database
+pinecone==5.4.2
+pinecone-client==5.0.1
+
+# Document Processing
+pypdf==5.1.0
+
+# Image Processing
+Pillow==11.0.0
+
+# STT/TTS
+requests==2.32.3
+
