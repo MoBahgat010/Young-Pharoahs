@@ -119,6 +119,7 @@ async def query_rag(
             
             # Describe images in parallel
             image_descriptions = await services.vision_service.describe_images_batch(pil_images)
+            logger.info(f"{'image_descriptions'}: {image_descriptions}")
             logger.info(f"Generated {len(image_descriptions)} image descriptions")
             
         except ValueError as e:
@@ -161,10 +162,13 @@ async def query_rag(
     context = build_context_from_documents(results)
     
     # Generate answer using LLM
+    logger.info(f"{'context'}: {context}")
+    logger.info(f"{'prompt'}: {prompt}")
     try:
         answer = services.llm_service.generate_with_context(
             query=prompt,
-            context=context
+            context=context,
+            image_descriptions=image_descriptions
         )
         logger.info("Generated answer successfully")
     except RuntimeError as e:

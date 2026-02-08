@@ -86,35 +86,45 @@ class LLMService:
         self, 
         query: str, 
         context: str,
+        image_descriptions: list[str] | None = None,
         system_instruction: str | None = None
     ) -> str:
         """
-        Generate answer based on query and context.
+        Generate answer based on query, context, and optional images.
         
         Args:
             query: User's question
             context: Retrieved context documents
-            system_instruction: Optional system instruction
+            image_descriptions: Optional list of image descriptions
+            system_instruction: Optional system instruction override
             
         Returns:
             Generated answer
         """
-        default_instruction = (
-            "You are an expert assistant specializing in ancient Egyptian history. "
-            "Answer the question using ONLY the context provided below. "
-            "If the context doesn't contain the answer, respond with "
-            "\"I don't have enough information to answer that question.\""
-        )
-        
-        instruction = system_instruction or default_instruction
-        
-        prompt = f"""{instruction}
+        image_context_str = ""
+        if image_descriptions:
+            image_context_str = "\n\n### User Image Context:\n" + "\n".join(image_descriptions)
 
-Context:
+        prompt = f"""You are a strict and knowledgeable assistant specializing in ancient Egyptian history.
+Your goal is to answer the user's question using ONLY the provided context, but you must strictly adhere to the following logic:
+
+### STRICT RULES:
+1. **Identify the Subject:** First, look at the 'Image Description' below and identify the name of the Egyptian King mentioned.
+2. **Filter Context:** You may ONLY use information from the 'Retrieved Context' that explicitly refers to the King identified in step 1. Discard any information about other kings or unrelated topics.
+3. **Relevance Check:** Does the filtered information specifically answer the 'User Question'?
+   - IF YES: Answer the question using only that information.
+   - IF NO: State "I do not have enough information about [King's Name] to answer this specific question."
+4. **NO HALLUCINATION:** Do not add any outside knowledge. If the answer is not in the text provided, admit it.
+
+### Retrieved Context:
 {context}
 
-Question: {query}
+### Image Description (Target Subject):
+{image_context_str}
 
-Answer:"""
+### User Question:
+{query}
+
+### Answer:"""
         
         return self.generate(prompt)

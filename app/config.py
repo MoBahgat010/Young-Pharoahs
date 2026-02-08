@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     
     # ── STT/TTS Configuration ───────────────────────────────────────────────
     stt_provider: str = "deepgram"
-    tts_provider: str = "elevenlabs"
+    tts_provider: str = "deepgram"
     tts_language: str = "en"
 
     deepgram_api_key: str | None = Field(default=None, alias="DEEPGRAM_KEY")
