@@ -10,7 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 
-from app.models.response import VoiceQueryResponse
+from app.models.response import VoiceQueryResponse, SourceDocument
 from app.routers.query import ServiceContainer, get_services
 from app.utils.prompt import build_context_from_documents
 from app.config import settings
@@ -99,9 +99,20 @@ async def voice_query_rag(
     else:
         model_used = tts_model or settings.elevenlabs_default_model
 
+    # Format sources
+    sources = [
+        SourceDocument(
+            content=doc.page_content,
+            metadata=doc.metadata,
+            score=score,
+        )
+        for doc, score in results
+    ]
+
     return VoiceQueryResponse(
         transcript=transcript,
         answer=answer,
+        sources=sources,
         audio_base64=audio_base64,
         tts_provider=provider_used,
         tts_model=model_used,

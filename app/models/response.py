@@ -65,7 +65,11 @@ class VoiceQueryResponse(BaseModel):
     """Response model for voice query endpoint."""
 
     transcript: str = Field(..., description="Transcribed text from audio")
-    answer: str = Field(..., description="Generated answer to the query")
+    answer: str = Field(..., description="Generated answer text used to generate the audio")
+    sources: List[SourceDocument] = Field(
+        default_factory=list,
+        description="Retrieved source documents"
+    )
     audio_base64: str = Field(..., description="Base64-encoded audio output")
     tts_provider: str = Field(..., description="TTS provider used")
     tts_model: str = Field(..., description="TTS model used")
@@ -77,6 +81,13 @@ class VoiceQueryResponse(BaseModel):
             "example": {
                 "transcript": "Tell me about Ramses II",
                 "answer": "Ramses II was one of the most powerful pharaohs...",
+                "sources": [
+                    {
+                        "content": "Ramses II ruled Egypt for 66 years...",
+                        "metadata": {"source_file": "ramses.pdf", "page": 1},
+                        "score": 0.89
+                    }
+                ],
                 "audio_base64": "<base64-audio>",
                 "tts_provider": "elevenlabs",
                 "tts_model": "eleven_multilingual_v2",
