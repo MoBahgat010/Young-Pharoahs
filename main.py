@@ -1,0 +1,149 @@
+"""
+Cross-Lingual RAG FastAPI Server (Refactored)
+==============================================
+Modern, modular architecture with dependency injection and service layers.
+
+Endpoints:
+  POST /query   — text + optional images → Gemini vision → BGE-M3 → Pinecone → Gemini LLM → answer
+  GET  /health  — service health check
+  GET  /        — API information
+"""
+
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
+from app.services import (
+    EmbeddingService,
+    VisionService,
+    VectorStoreService,
+    LLMService,
+    STTService,
+    TTSService,
+    RerankerService,
+)
+from app.routers import (
+    query_router,
+    health_router,
+    audio_router,
+    ServiceContainer,
+    set_service_container,
+)
+from app import __version__
+
+# ── Configure Logging ───────────────────────────────────────────────────────
+logging.basicConfig(
+    level=getattr(logging, settings.log_level),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+logger = logging.getLogger(__name__)
+
+
+# ── Application Lifespan ────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager.
+    Initializes all services on startup and cleans up on shutdown.
+    """
+    logger.info("=" * 60)
+    logger.info("Starting Cross-Lingual RAG API v%s", __version__)
+    logger.info("=" * 60)
+    
+    try:
+        # Initialize services
+        logger.info("Initializing services...")
+        
+        # 1. Embedding Service
+        embedding_service = EmbeddingService(settings)
+        embedding_service.load_model()
+        
+        # 2. Vector Store Service
+        vector_store_service = VectorStoreService(settings, embedding_service)
+        vector_store_service.initialize()
+        
+        # 3. Vision Service
+        vision_service = VisionService(settings)
+        vision_service.initialize()
+        
+        # 4. LLM Service
+        llm_service = LLMService(settings)
+        llm_service.initialize()
+
+        # 5. STT Service
+        stt_service = STTService(settings)
+
+        # 6. TTS Service
+        tts_service = TTSService(settings)
+
+        # 7. Reranker Service
+        reranker_service = RerankerService(settings)
+        reranker_service.initialize()
+        
+        # Create service container and inject into routers
+        container = ServiceContainer(
+            embedding_service=embedding_service,
+            vision_service=vision_service,
+            vector_store_service=vector_store_service,
+            llm_service=llm_service,
+            reranker_service=reranker_service,
+            stt_service=stt_service,
+            tts_service=tts_service,
+        )
+        set_service_container(container)
+        
+        logger.info("=" * 60)
+        logger.info("✓ All services initialized successfully")
+        logger.info("✓ API ready to accept requests")
+        logger.info("=" * 60)
+        
+        yield
+        
+    except Exception as e:
+        logger.error("Failed to initialize services: %s", e)
+        raise
+    
+    finally:
+        logger.info("Shutting down Cross-Lingual RAG API...")
+        logger.info("Cleanup complete")
+
+
+# ── FastAPI Application ─────────────────────────────────────────────────────
+app = FastAPI(
+    title=settings.api_title,
+    description=settings.api_description,
+    version=__version__,
+    lifespan=lifespan,
+)
+
+# ── Middleware ──────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_allow_origins,
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=settings.cors_allow_methods,
+    allow_headers=settings.cors_allow_headers,
+)
+
+# ── Include Routers ─────────────────────────────────────────────────────────
+app.include_router(health_router, tags=["Health"])
+app.include_router(query_router, tags=["Query"])
+app.include_router(audio_router, tags=["Audio"])
+
+
+# ── Application Entry Point ─────────────────────────────────────────────────
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level=settings.log_level.lower(),
+    )
