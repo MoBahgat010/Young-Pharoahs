@@ -18,13 +18,6 @@ class QueryRequest(BaseModel):
         description="The query text"
     )
     
-    top_k: Optional[int] = Field(
-        None,
-        ge=1,
-        le=20,
-        description="Number of results to retrieve (1-20)"
-    )
-    
     @validator('prompt')
     def prompt_not_empty(cls, v):
         """Validate prompt is not just whitespace."""
@@ -41,7 +34,6 @@ class QueryRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "prompt": "Tell me about Ramses II",
-                "top_k": 5,
                 "image_descriptions": ["A statue of Ramses II"]
             }
         }
