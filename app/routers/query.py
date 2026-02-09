@@ -7,9 +7,10 @@ Handles RAG query endpoints with image and text input.
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body
 
-from app.models.response import QueryResponse, SourceDocument
+from app.models.response import QueryResponse, SourceDocument, ImageDescriptionResponse
+from app.models.request import QueryRequest
 from app.services import (
     EmbeddingService,
     VisionService,
@@ -72,24 +73,61 @@ def get_services() -> ServiceContainer:
 
 
 @router.post(
+    "/describe-images",
+    response_model=ImageDescriptionResponse,
+    summary="Get image descriptions from vision model",
+    description="Upload images to get their textual descriptions from the vision model.",
+)
+async def describe_images(
+    images: List[UploadFile] = File(..., description="Images to analyze"),
+    services: ServiceContainer = Depends(get_services),
+) -> ImageDescriptionResponse:
+    """
+    Process images and return descriptions.
+    """
+    try:
+        if not images:
+             raise HTTPException(status_code=400, detail="No images provided")
+
+        # Validate image count
+        validate_image_count(len(images), settings.max_images_per_request)
+        
+        # Convert to PIL Images
+        pil_images = await upload_files_to_pil_images(images)
+        logger.info(f"Processing {len(pil_images)} images")
+        
+        # Describe images in parallel
+        image_descriptions = await services.vision_service.describe_images_batch(pil_images)
+        logger.info(f"Generated {len(image_descriptions)} image descriptions")
+        
+        return ImageDescriptionResponse(descriptions=image_descriptions)
+
+    except ValueError as e:
+        logger.error(f"Image validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        logger.error(f"Image processing error: {e}")
+        raise HTTPException(status_code=502, detail=f"Image processing failed: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error processing images: {e}")
+        raise HTTPException(status_code=500, detail=f"Image processing error: {e}")
+
+
+@router.post(
     "/query",
     response_model=QueryResponse,
     summary="Query RAG system",
-    description="Submit a text query with optional images to retrieve and generate answers from the knowledge base.",
+    description="Submit a text query with optional image descriptions (from /describe-images) to retrieve and generate answers.",
 )
 async def query_rag(
-    prompt: str = Form(..., description="The query text"),
-    images: Optional[List[UploadFile]] = File(None, description="Optional images to analyze"),
-    top_k: Optional[int] = Form(None, description="Number of results to retrieve"),
+    request: QueryRequest = Body(..., description="Query request body"),
     services: ServiceContainer = Depends(get_services),
 ) -> QueryResponse:
     """
-    Query the RAG system with text and optional images.
+    Query the RAG system with text and optional image descriptions.
     
     Args:
-        prompt: User query text
-        images: Optional uploaded images
-        top_k: Number of results to retrieve (overrides default)
+        request: Query parameters including prompt and image descriptions
         services: Injected service container
         
     Returns:
@@ -98,6 +136,9 @@ async def query_rag(
     Raises:
         HTTPException: For various errors during processing
     """
+    prompt = request.prompt
+    image_descriptions = request.image_descriptions
+
     logger.info(f"Received query: '{prompt[:100]}...'")
     
     # Validate inputs
@@ -105,40 +146,15 @@ async def query_rag(
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
     
     prompt = prompt.strip()
-    image_descriptions: List[str] = []
-    
-    # Process images if provided
-    if images:
-        try:
-            # Validate image count
-            validate_image_count(len(images), settings.max_images_per_request)
-            
-            # Convert to PIL Images
-            pil_images = await upload_files_to_pil_images(images)
-            logger.info(f"Processing {len(pil_images)} images")
-            
-            # Describe images in parallel
-            image_descriptions = await services.vision_service.describe_images_batch(pil_images)
-            logger.info(f"{'image_descriptions'}: {image_descriptions}")
-            logger.info(f"Generated {len(image_descriptions)} image descriptions")
-            
-        except ValueError as e:
-            logger.error(f"Image validation error: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
-        except RuntimeError as e:
-            logger.error(f"Image processing error: {e}")
-            raise HTTPException(status_code=502, detail=f"Image processing failed: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error processing images: {e}")
-            raise HTTPException(status_code=500, detail=f"Image processing error: {e}")
+    valid_descriptions: List[str] = image_descriptions or []
     
     # Enrich query with image context
-    search_query = enrich_query_with_images(prompt, image_descriptions)
+    search_query = enrich_query_with_images(prompt, valid_descriptions)
     logger.info(f"Search query: '{search_query[:100]}...'")
     
     # Perform vector search
     try:
-        k = top_k or settings.top_k
+        k = settings.top_k
         # Retrieve more candidates for reranking
         initial_k = min(k * 4, 100)
         results = services.vector_store_service.similarity_search(search_query, k=initial_k)
@@ -168,7 +184,7 @@ async def query_rag(
         answer = services.llm_service.generate_with_context(
             query=prompt,
             context=context,
-            image_descriptions=image_descriptions
+            image_descriptions=valid_descriptions
         )
         logger.info("Generated answer successfully")
     except RuntimeError as e:
@@ -178,20 +194,9 @@ async def query_rag(
         logger.error(f"Unexpected error during generation: {e}")
         raise HTTPException(status_code=500, detail=f"Generation error: {e}")
     
-    # Format response
-    sources = [
-        SourceDocument(
-            content=doc.page_content,
-            metadata=doc.metadata,
-            score=score,
-        )
-        for doc, score in results
-    ]
-    
     response = QueryResponse(
         answer=answer,
-        sources=sources,
-        image_descriptions=image_descriptions,
+        image_descriptions=valid_descriptions,
         search_query=search_query,
         top_k=k,
     )

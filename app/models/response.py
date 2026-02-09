@@ -135,3 +135,9 @@ class ErrorResponse(BaseModel):
                 "error_type": "VectorStoreError"
             }
         }
+
+
+class ImageDescriptionResponse(BaseModel):
+    """Response model for image description endpoint."""
+    descriptions: List[str] = Field(..., description="List of image descriptions")
+

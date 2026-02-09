@@ -28,9 +28,8 @@ router = APIRouter()
 )
 async def voice_query_rag(
     audio: UploadFile = File(..., description="Audio file (wav/mp3/m4a)"),
-    top_k: Optional[int] = Form(None, description="Number of results to retrieve"),
     tts_provider: Optional[str] = Form(None, description="TTS provider: elevenlabs or deepgram"),
-    tts_voice: Optional[str] = Form(None, description="TTS voice: female/male or voice id"),
+    gender: Optional[str] = Form(None, description="Voice gender: female/male"),
     tts_model: Optional[str] = Form(None, description="TTS model override"),
     stt_model: Optional[str] = Form(None, description="STT model override"),
     services: ServiceContainer = Depends(get_services),
@@ -66,7 +65,7 @@ async def voice_query_rag(
 
     # 2) Retrieve documents
     try:
-        k = top_k or settings.top_k
+        k = settings.top_k
         results = services.vector_store_service.similarity_search(transcript, k=k)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -85,7 +84,7 @@ async def voice_query_rag(
         audio_out = services.tts_service.synthesize(
             text=answer,
             provider=tts_provider,
-            voice=tts_voice,
+            voice=gender,
             model=tts_model,
         )
     except (RuntimeError, ValueError) as e:
@@ -112,7 +111,6 @@ async def voice_query_rag(
     return VoiceQueryResponse(
         transcript=transcript,
         answer=answer,
-        sources=sources,
         audio_base64=audio_base64,
         tts_provider=provider_used,
         tts_model=model_used,

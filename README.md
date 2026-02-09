@@ -35,42 +35,71 @@ Docs available at: `http://localhost:8000/docs`
 
 ## 3. API Endpoints
 
-### `POST /query` (multipart form)
+### `POST /describe-images` (multipart form)
 
-Send text + optional images:
-
-```bash
-# Text only
-curl -X POST http://localhost:8000/query \
-  -F "prompt=من هو رمسيس الثاني؟"
-
-# Text + image
-curl -X POST http://localhost:8000/query \
-  -F "prompt=What is shown in this image?" \
-  -F "images=@pharaoh.jpg"
-```
-
-### `POST /query/json` (JSON body)
-
-Send text + optional base64-encoded images:
+Upload images to get their textual descriptions from the vision model.
 
 ```bash
-curl -X POST http://localhost:8000/query/json \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Tell me about Ramses II", "top_k": 3}'
+curl -X POST http://localhost:8000/describe-images \
+  -F "images=@pharaoh1.jpg" \
+  -F "images=@pharaoh2.jpg"
 ```
 
 ### Response
 
 ```json
 {
-  "answer": "Ramses II was...",
-  "image_descriptions": ["The image shows..."],
-  "sources": [
-    {"content": "chunk text...", "metadata": {"page": 1, "source_file": "ramses.pdf"}}
-  ],
-  "search_query": "original or enriched query",
-  "top_k": 5
+  "descriptions": ["Ramesses II"]
+}
+```
+
+### `POST /query` (JSON)
+
+Send text + optional image descriptions (obtained from `/describe-images`):
+
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "What is shown in these images?",
+    "image_descriptions": [
+        "Khofo",
+        "Ramses II"
+    ],
+  }'
+```
+
+
+### Response
+
+```json
+{
+  "answer": ""
+}
+```
+
+### `POST /voice-query` (multipart form)
+
+Send audio file to perform RAG and get audio response.
+
+```bash
+curl -X POST http://localhost:8000/voice-query \
+  -F "audio=@query.wav" \
+  -F "gender=female" \
+  -F "tts_provider=elevenlabs"
+```
+
+Options:
+- `audio`: Audio file (wav, mp3, m4a)
+- `gender`: Voice gender (`male` or `female`)
+- `tts_provider`: `elevenlabs` or `deepgram`
+
+### Response
+
+```json
+{
+  "answer": "",
+  "audio_base64": ""
 }
 ```
 

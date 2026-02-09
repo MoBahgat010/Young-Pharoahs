@@ -32,10 +32,16 @@ class QueryRequest(BaseModel):
             raise ValueError("Prompt cannot be empty or just whitespace")
         return v.strip()
     
+    image_descriptions: Optional[list[str]] = Field(
+        None,
+        description="Optional list of image descriptions"
+    )
+    
     class Config:
         json_schema_extra = {
             "example": {
                 "prompt": "Tell me about Ramses II",
-                "top_k": 5
+                "top_k": 5,
+                "image_descriptions": ["A statue of Ramses II"]
             }
         }
