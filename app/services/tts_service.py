@@ -56,6 +56,7 @@ class TTSService:
             if voice_id == "male":
                 voice_id = self.settings.elevenlabs_voice_male or self.settings.elevenlabs_voice_female
             else:
+                print("fdsfdsfds")
                 voice_id = self.settings.elevenlabs_voice_female or self.settings.elevenlabs_voice_male
 
         if not voice_id:
