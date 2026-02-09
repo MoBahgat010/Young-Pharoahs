@@ -51,6 +51,7 @@ class TTSService:
         model_id = model or self.settings.elevenlabs_default_model
 
         voice_id = voice
+        logger.debug("Selected ElevenLabs voice: %s", voice_id)
         if voice_id in (None, "female", "male"):
             if voice_id == "male":
                 voice_id = self.settings.elevenlabs_voice_male or self.settings.elevenlabs_voice_female

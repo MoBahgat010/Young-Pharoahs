@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     
     # ── Google Gemini Configuration ─────────────────────────────────────────
     gemini_api_key: str
-    gemini_model: str = "gemini-1.5-pro"
-    gemini_vision_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-3-flash-preview"
+    gemini_vision_model: str = "gemini-3-flash-preview"
     
     # ── RAG Configuration ───────────────────────────────────────────────────
     top_k: int = 5

@@ -78,11 +78,13 @@ async def voice_query_rag(
         answer = services.llm_service.generate_with_context(query=transcript, context=context)
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"LLM generation failed: {e}")
+    
+    answer_reformatted = answer.replace("*", "").strip()
 
     # 4) TTS
     try:
         audio_out = services.tts_service.synthesize(
-            text=answer,
+            text=answer_reformatted,
             provider=tts_provider,
             voice=gender,
             model=tts_model,
@@ -97,16 +99,6 @@ async def voice_query_rag(
         model_used = tts_model or settings.deepgram_tts_model
     else:
         model_used = tts_model or settings.elevenlabs_default_model
-
-    # Format sources
-    sources = [
-        SourceDocument(
-            content=doc.page_content,
-            metadata=doc.metadata,
-            score=score,
-        )
-        for doc, score in results
-    ]
 
     return VoiceQueryResponse(
         transcript=transcript,

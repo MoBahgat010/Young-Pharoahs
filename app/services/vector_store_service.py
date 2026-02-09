@@ -98,10 +98,8 @@ class VectorStoreService:
         
         # Validate and set k
         k = k or self.settings.top_k
-        if k < self.settings.min_top_k or k > self.settings.max_top_k:
-            raise ValueError(
-                f"top_k must be between {self.settings.min_top_k} and {self.settings.max_top_k}"
-            )
+        if k < 1:
+            raise ValueError("top_k must be at least 1")
         
         logger.info(f"Performing similarity search with k={k}")
         
