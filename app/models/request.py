@@ -30,10 +30,17 @@ class QueryRequest(BaseModel):
         description="Optional list of image descriptions"
     )
     
+    # TTS Parameters
+    gender: Optional[str] = Field(None, description="Voice gender for TTS (female/male)")
+    tts_provider: Optional[str] = Field(None, description="TTS provider (elevenlabs/deepgram)")
+    tts_model: Optional[str] = Field(None, description="TTS model override")
+    
     class Config:
         json_schema_extra = {
             "example": {
                 "prompt": "Tell me about Ramses II",
-                "image_descriptions": ["A statue of Ramses II"]
+                "image_descriptions": ["A statue of Ramses II"],
+                "gender": "male",
+                "tts_provider": "elevenlabs"
             }
         }

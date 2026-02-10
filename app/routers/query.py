@@ -5,6 +5,7 @@ Handles RAG query endpoints with image and text input.
 """
 
 import logging
+import base64
 from typing import List, Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body
@@ -138,6 +139,9 @@ async def query_rag(
     """
     prompt = request.prompt
     image_descriptions = request.image_descriptions
+    gender = request.gender
+    tts_provider = request.tts_provider
+    tts_model = request.tts_model
 
     logger.info(f"Received query: '{prompt[:100]}...'")
     
@@ -155,13 +159,17 @@ async def query_rag(
     # Perform vector search
     try:
         k = settings.top_k
-        # Retrieve more candidates for reranking
-        initial_k = min(k * 4, 100)
-        results = services.vector_store_service.similarity_search(search_query, k=initial_k)
+
+        logger.info(f"Performing vector search with top_k={k}")
+        
+        # Retrieve candidates for reranking
+        results = services.vector_store_service.similarity_search(search_query, k=k)
         logger.info(f"Retrieved {len(results)} initial documents")
         
         # Rerank results
-        results = services.reranker_service.rerank(search_query, results, top_k=k)
+        # We want to return 8 documents after reranking
+        rerank_top_k = 8
+        results = services.reranker_service.rerank(search_query, results, top_k=rerank_top_k)
         logger.info(f"Reranked to top {len(results)} documents")
         
     except ValueError as e:
@@ -194,11 +202,40 @@ async def query_rag(
         logger.error(f"Unexpected error during generation: {e}")
         raise HTTPException(status_code=500, detail=f"Generation error: {e}")
     
+    audio_base64 = None
+    provider_used = None
+    model_used = None
+
+    # answer_reformatted = answer.replace("*", "").strip()
+
+    # # Determine TTS settings
+    # provider_used = (tts_provider or settings.tts_provider).lower()
+    # if provider_used == "deepgram":
+    #     model_used = tts_model or settings.deepgram_tts_model
+    # else:
+    #     model_used = tts_model or settings.elevenlabs_default_model
+
+    # # 4) TTS
+    # try:
+    #     audio_out = services.tts_service.synthesize(
+    #         text=answer_reformatted,
+    #         provider=provider_used,
+    #         voice=gender,
+    #         model=model_used,
+    #     )
+    # except (RuntimeError, ValueError) as e:
+    #     raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
+
+    # audio_base64 = base64.b64encode(audio_out).decode("utf-8")
+    
     response = QueryResponse(
         answer=answer,
         image_descriptions=valid_descriptions,
         search_query=search_query,
         top_k=k,
+        audio_base64=audio_base64,
+        tts_provider=provider_used,
+        tts_model=model_used,
     )
     
     logger.info("Query processed successfully")

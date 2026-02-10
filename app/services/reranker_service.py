@@ -39,12 +39,11 @@ class RerankerService:
         logger.info(f"Loading BGE reranker model on {self.device}...")
 
         try:
-            # Force FP16 for VRAM savings as requested
-            model_kwargs = {"torch_dtype": "float16"} if self.device == "cuda" else {}
+            model_kwargs = {"torch_dtype": torch.float16} if self.device == "cuda" else {}
             
             self.model = CrossEncoder(
                 'BAAI/bge-reranker-base',
-                automodel_args=model_kwargs,
+                model_kwargs=model_kwargs,
                 device=self.device
             )
             logger.info("Reranker model loaded successfully")
@@ -56,7 +55,7 @@ class RerankerService:
         self,
         query: str,
         documents: List[Tuple[Document, float]],
-        top_k: int | None = None,
+        top_k: int = 8,
         batch_size: int = 4
     ) -> List[Tuple[Document, float]]:
         """
@@ -65,7 +64,7 @@ class RerankerService:
         Args:
             query: The search query.
             documents: List of (Document, score) tuples from the vector store.
-            top_k: Number of top results to return after reranking.
+            top_k: Number of top results to return after reranking. Default is 8.
             batch_size: Batch size for prediction to manage VRAM usage.
 
         Returns:
@@ -101,6 +100,4 @@ class RerankerService:
 
         except Exception as e:
             logger.error(f"Reranking failed: {e}")
-            # Fallback to original order if reranking fails? 
-            # Or raise? Raising seems safer to alert issues.
             raise RuntimeError(f"Reranking failed: {e}") from e
