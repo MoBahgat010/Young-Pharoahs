@@ -10,6 +10,7 @@ from app.services.tts_service import TTSService
 from app.services.reranker_service import RerankerService
 from app.services.database import DatabaseService
 from app.services.auth_service import AuthService
+from app.services.places_service import PlacesService
 
 __all__ = [
     "EmbeddingService",
@@ -21,4 +22,5 @@ __all__ = [
     "RerankerService",
     "DatabaseService",
     "AuthService",
+    "PlacesService",
 ]

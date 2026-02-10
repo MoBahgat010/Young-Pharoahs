@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "your_secret_key"  # Change in production
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 1 day
+
+    # ── Google Places Configuration ─────────────────────────────────────────
+    google_places_api_key: str | None = Field(default=None, alias="GOOGLE_PLACES_API_KEY")
+    places_radius: int = 5000  # search radius in meters
     
     def validate_api_keys(self) -> None:
         """Validate that required API keys are present."""
