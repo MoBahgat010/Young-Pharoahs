@@ -44,7 +44,7 @@ Once the pharaoh is identified, the user enters an **immersive AR chat**:
 
 - 🗣️ **Voice interaction** — speak in any language, the pharaoh responds naturally
 - 📝 **Text chat** — type questions and get rich, historically-accurate answers
-- 🌍 **Cross-lingual** — ask in Arabic, English, French, German, and more
+- 🌍 **Cross-lingual** — ask in Arabic, English, French, German, and more up to 100 languages
 - 📚 **RAG-powered** — every answer is grounded in real historical documents
 
 > The pharaoh doesn't just answer — they tell **their story** in first person.
