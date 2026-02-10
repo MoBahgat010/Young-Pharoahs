@@ -11,13 +11,13 @@ from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 
 from app.models.response import VoiceQueryResponse, SourceDocument
-from app.routers.query import ServiceContainer, get_services
+from app.routers.query import ServiceContainer, get_services, get_current_user
 from app.utils.prompt import build_context_from_documents
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 @router.post(

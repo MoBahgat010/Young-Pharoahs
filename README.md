@@ -35,71 +35,143 @@ Docs available at: `http://localhost:8000/docs`
 
 ## 3. API Endpoints
 
-### `POST /describe-images` (multipart form)
+### Authentication
 
+#### `POST /auth/signup`
+Register a new user to access protected endpoints.
+
+**Request Body (JSON):**
+```json
+{
+  "username": "string",
+  "age": 0,
+  "country": "string",
+  "password": "string (max 72 chars)"
+}
+```
+
+**Response (JSON):**
+```json
+{
+  "username": "string",
+  "age": 0,
+  "country": "string",
+  "id": "string (user_id)"
+}
+```
+
+#### `POST /auth/signin`
+Login to receive an access token.
+
+**Request Body (JSON):**
+```json
+{
+  "username": "string",
+  "password": "string"
+}
+```
+
+**Response (JSON):**
+```json
+{
+  "access_token": "string (jwt)",
+  "token_type": "bearer"
+}
+```
+
+---
+
+### Protected Endpoints
+**Note:** All the following endpoints require the Authorization header:
+`Authorization: Bearer <your_access_token>`
+
+#### `GET /pharaohs/{king_name}`
+Get details about a specific Pharaoh.
+
+**Parameters:**
+- `king_name` (path, string): Name of the King (e.g., "Ramses II")
+
+**Response (JSON):**
+```json
+{
+  "king_name": "Ramses II",
+  "monuments": [
+    {
+      "name": "The Great Temple of Abu Simbel",
+      "details": "...",
+      "location_name": "Abu Simbel",
+      "location_url": "...",
+      "image_url": "...",
+      "location_image_url": "..."
+    }
+  ]
+}
+```
+
+#### `POST /describe-images` (Multipart)
 Upload images to get their textual descriptions from the vision model.
 
-```bash
-curl -X POST http://localhost:8000/describe-images \
-  -F "images=@pharaoh1.jpg" \
-  -F "images=@pharaoh2.jpg"
-```
+**Request (Multipart/Form-Data):**
+- `images`: List of image files (jpg, png, etc.)
 
-### Response
-
+**Response (JSON):**
 ```json
 {
-  "descriptions": ["Ramesses II"]
+  "descriptions": [
+    "Ramses II"
+  ]
 }
 ```
 
-### `POST /query` (JSON)
+#### `POST /query` (JSON)
+Submit a RAG query with text and optional image descriptions.
 
-Send text + optional image descriptions (obtained from `/describe-images`):
-
-```bash
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "What is shown in these images?",
-    "image_descriptions": [
-        "Khofo",
-        "Ramses II"
-    ],
-  }'
-```
-
-
-### Response
-
+**Request Body (JSON):**
 ```json
 {
-  "answer": ""
+  "prompt": "Who is this king?",
+  "image_descriptions": [
+    "Ramses II"
+  ],
+  "gender": "female"
+}
+```
+*   `image_descriptions`: List of strings (outputs from `/describe-images`).
+*   `gender`: `male` or `female`.
+
+**Response (JSON):**
+```json
+{
+  "answer": "This is Ramses II...",
+  "image_descriptions": [...],
+  "search_query": "...",
+  "top_k": 5,
+  "audio_base64": null,
+  "tts_provider": null,
+  "tts_model": null
 }
 ```
 
-### `POST /voice-query` (multipart form)
-
+#### `POST /voice-query` (Multipart)
 Send audio file to perform RAG and get audio response.
 
-```bash
-curl -X POST http://localhost:8000/voice-query \
-  -F "audio=@query.wav" \
-  -F "gender=female" \
-  -F "tts_provider=elevenlabs"
-```
-
-Options:
+**Request (Multipart/Form-Data):**
 - `audio`: Audio file (wav, mp3, m4a)
-- `gender`: Voice gender (`male` or `female`)
-- `tts_provider`: `elevenlabs` or `deepgram`
+- `gender`: Optional `male` or `female`
+- `tts_provider`: Optional `elevenlabs` or `deepgram`
+- `tts_model`: Optional model override
+- `stt_model`: Optional STT model override
 
-### Response
-
+**Response (JSON):**
 ```json
 {
-  "answer": "",
-  "audio_base64": ""
+  "transcript": "Tell me about Ramses II",
+  "answer": "Ramses II was...",
+  "audio_base64": "<base64_string>",
+  "tts_provider": "elevenlabs",
+  "tts_model": "eleven_multilingual_v2",
+  "search_query": "...",
+  "top_k": 5
 }
 ```
 

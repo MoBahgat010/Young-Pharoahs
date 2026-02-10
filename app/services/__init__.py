@@ -8,6 +8,8 @@ from app.services.stt_service import STTService
 from app.services.tts_service import TTSService
 
 from app.services.reranker_service import RerankerService
+from app.services.database import DatabaseService
+from app.services.auth_service import AuthService
 
 __all__ = [
     "EmbeddingService",
@@ -17,4 +19,6 @@ __all__ = [
     "STTService",
     "TTSService",
     "RerankerService",
+    "DatabaseService",
+    "AuthService",
 ]

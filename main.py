@@ -24,11 +24,15 @@ from app.services import (
     STTService,
     TTSService,
     RerankerService,
+    DatabaseService,
+    AuthService,
 )
 from app.routers import (
     query_router,
     health_router,
     audio_router,
+    auth_router,
+    pharaohs_router,
     ServiceContainer,
     set_service_container,
 )
@@ -85,6 +89,14 @@ async def lifespan(app: FastAPI):
         reranker_service = RerankerService(settings)
         reranker_service.initialize()
         
+        # 8. Database Service
+        logger.info("Connecting to MongoDB...")
+        database_service = DatabaseService(settings)
+        database_service.connect()
+        
+        # 9. Auth Service
+        auth_service = AuthService(settings, database_service)
+        
         # Create service container and inject into routers
         container = ServiceContainer(
             embedding_service=embedding_service,
@@ -94,6 +106,8 @@ async def lifespan(app: FastAPI):
             reranker_service=reranker_service,
             stt_service=stt_service,
             tts_service=tts_service,
+            database_service=database_service,
+            auth_service=auth_service,
         )
         set_service_container(container)
         
@@ -111,6 +125,9 @@ async def lifespan(app: FastAPI):
     finally:
         logger.info("Shutting down Cross-Lingual RAG API...")
         logger.info("Cleanup complete")
+        
+        if 'database_service' in locals():
+            database_service.close()
 
 
 # ── FastAPI Application ─────────────────────────────────────────────────────
@@ -134,6 +151,8 @@ app.add_middleware(
 app.include_router(health_router, tags=["Health"])
 app.include_router(query_router, tags=["Query"])
 app.include_router(audio_router, tags=["Audio"])
+app.include_router(auth_router, tags=["Auth"])
+app.include_router(pharaohs_router, tags=["Pharaohs"])
 
 
 # ── Application Entry Point ─────────────────────────────────────────────────

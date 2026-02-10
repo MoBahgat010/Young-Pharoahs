@@ -9,6 +9,8 @@ import base64
 from typing import List, Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body
+from fastapi.security import OAuth2PasswordBearer
+from typing import Annotated
 
 from app.models.response import QueryResponse, SourceDocument, ImageDescriptionResponse
 from app.models.request import QueryRequest
@@ -46,6 +48,8 @@ class ServiceContainer:
         reranker_service: RerankerService,
         stt_service: Optional[STTService] = None,
         tts_service: Optional[TTSService] = None,
+        database_service: Optional["DatabaseService"] = None,
+        auth_service: Optional["AuthService"] = None,
     ):
         self.embedding_service = embedding_service
         self.vision_service = vision_service
@@ -54,6 +58,8 @@ class ServiceContainer:
         self.reranker_service = reranker_service
         self.stt_service = stt_service
         self.tts_service = tts_service
+        self.database_service = database_service
+        self.auth_service = auth_service
 
 
 # Global service container (set by main app during startup)
@@ -73,11 +79,21 @@ def get_services() -> ServiceContainer:
     return _service_container
 
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/signin")
+
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)], 
+    services: ServiceContainer = Depends(get_services)
+):
+    return await services.auth_service.get_current_user(token)
+
+
 @router.post(
     "/describe-images",
     response_model=ImageDescriptionResponse,
     summary="Get image descriptions from vision model",
     description="Upload images to get their textual descriptions from the vision model.",
+    dependencies=[Depends(get_current_user)]
 )
 async def describe_images(
     images: List[UploadFile] = File(..., description="Images to analyze"),
@@ -119,6 +135,7 @@ async def describe_images(
     response_model=QueryResponse,
     summary="Query RAG system",
     description="Submit a text query with optional image descriptions (from /describe-images) to retrieve and generate answers.",
+    dependencies=[Depends(get_current_user)]
 )
 async def query_rag(
     request: QueryRequest = Body(..., description="Query request body"),

@@ -85,6 +85,15 @@ class Settings(BaseSettings):
     elevenlabs_default_voice: str = "female"
     elevenlabs_default_model: str = "eleven_multilingual_v2"
     tts_audio_format: str = "mp3"
+
+    # ── Database Configuration ──────────────────────────────────────────────
+    mongodb_uri: str = Field(..., alias="MONGODB_URI")
+    db_name: str = "pharaohs_db"
+
+    # ── Auth Configuration ──────────────────────────────────────────────────
+    jwt_secret_key: str = "your_secret_key"  # Change in production
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24  # 1 day
     
     def validate_api_keys(self) -> None:
         """Validate that required API keys are present."""
