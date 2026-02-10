@@ -67,6 +67,9 @@ async def voice_query_rag(
     try:
         k = settings.top_k
         results = services.vector_store_service.similarity_search(transcript, k=k)
+
+        rerank_top_k = settings.rerank_top_k
+        results = services.reranker_service.rerank(transcript, results, top_k=rerank_top_k)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:

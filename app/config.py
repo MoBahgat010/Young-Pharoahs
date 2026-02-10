@@ -33,9 +33,11 @@ class Settings(BaseSettings):
     gemini_vision_model: str = "gemini-3-flash-preview"
     
     # ── RAG Configuration ───────────────────────────────────────────────────
-    top_k: int = 5
-    max_top_k: int = 20
+    top_k: int = 30
+    max_top_k: int = 100
     min_top_k: int = 1
+
+    rerank_top_k: int = 10
     
     # ── Embedding Configuration ─────────────────────────────────────────────
     embedding_model: str = "BAAI/bge-m3"

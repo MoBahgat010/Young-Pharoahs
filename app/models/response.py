@@ -43,6 +43,11 @@ class QueryResponse(BaseModel):
     search_query: str = Field(..., description="Enriched search query used")
     top_k: int = Field(..., description="Number of results retrieved")
     
+    # TTS Response Fields
+    audio_base64: Optional[str] = Field(None, description="Base64-encoded audio output")
+    tts_provider: Optional[str] = Field(None, description="TTS provider used")
+    tts_model: Optional[str] = Field(None, description="TTS model used")
+    
     class Config:
         json_schema_extra = {
             "example": {
