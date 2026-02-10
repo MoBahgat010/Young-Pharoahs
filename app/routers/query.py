@@ -22,6 +22,7 @@ from app.services import (
     STTService,
     TTSService,
     RerankerService,
+    PlacesService,
 )
 from app.utils.image import upload_files_to_pil_images, validate_image_count
 from app.utils.prompt import (
@@ -50,6 +51,7 @@ class ServiceContainer:
         tts_service: Optional[TTSService] = None,
         database_service: Optional["DatabaseService"] = None,
         auth_service: Optional["AuthService"] = None,
+        places_service: Optional[PlacesService] = None,
     ):
         self.embedding_service = embedding_service
         self.vision_service = vision_service
@@ -60,6 +62,7 @@ class ServiceContainer:
         self.tts_service = tts_service
         self.database_service = database_service
         self.auth_service = auth_service
+        self.places_service = places_service
 
 
 # Global service container (set by main app during startup)

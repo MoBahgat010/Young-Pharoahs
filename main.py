@@ -26,6 +26,7 @@ from app.services import (
     RerankerService,
     DatabaseService,
     AuthService,
+    PlacesService,
 )
 from app.routers import (
     query_router,
@@ -97,6 +98,10 @@ async def lifespan(app: FastAPI):
         # 9. Auth Service
         auth_service = AuthService(settings, database_service)
         
+        # 10. Places Service
+        places_service = PlacesService(settings)
+        logger.info("Google Places service initialized")
+        
         # Create service container and inject into routers
         container = ServiceContainer(
             embedding_service=embedding_service,
@@ -108,6 +113,7 @@ async def lifespan(app: FastAPI):
             tts_service=tts_service,
             database_service=database_service,
             auth_service=auth_service,
+            places_service=places_service,
         )
         set_service_container(container)
         
