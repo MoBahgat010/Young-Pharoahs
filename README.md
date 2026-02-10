@@ -81,9 +81,40 @@ Login to receive an access token.
 
 ---
 
-### Protected Endpoints
-**Note:** All the following endpoints require the Authorization header:
-`Authorization: Bearer <your_access_token>`
+### Public Endpoints
+All endpoints are now public and do not require authentication.
+
+#### `GET /pharaohs`
+List all pharaohs with basic information.
+
+**Response (JSON):**
+```json
+{
+  "pharaohs": [
+    {
+      "king_name": "Ramses II"
+    },
+    ...
+  ]
+}
+```
+
+#### `GET /pharaohs/search`
+Search for a pharaoh by name.
+
+**Parameters:**
+- `q` (query, string): Search query (case-insensitive partial match)
+
+**Response (JSON):**
+```json
+{
+  "results": [
+    {
+      "king_name": "Ramses II"
+    }
+  ]
+}
+```
 
 #### `GET /pharaohs/{king_name}`
 Get details about a specific Pharaoh.

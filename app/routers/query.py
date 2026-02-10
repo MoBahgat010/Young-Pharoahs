@@ -96,7 +96,7 @@ async def get_current_user(
     response_model=ImageDescriptionResponse,
     summary="Get image descriptions from vision model",
     description="Upload images to get their textual descriptions from the vision model.",
-    dependencies=[Depends(get_current_user)]
+    dependencies=[]
 )
 async def describe_images(
     images: List[UploadFile] = File(..., description="Images to analyze"),
@@ -138,7 +138,7 @@ async def describe_images(
     response_model=QueryResponse,
     summary="Query RAG system",
     description="Submit a text query with optional image descriptions (from /describe-images) to retrieve and generate answers.",
-    dependencies=[Depends(get_current_user)]
+    dependencies=[]
 )
 async def query_rag(
     request: QueryRequest = Body(..., description="Query request body"),

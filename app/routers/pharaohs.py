@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/pharaohs", 
-    tags=["Pharaohs"], 
-    dependencies=[Depends(get_current_user)]
+    tags=["Pharaohs"]
 )
 
 
@@ -43,6 +42,33 @@ def _find_monument(pharaoh: dict, monument_name: str) -> dict:
         status_code=404,
         detail=f"Monument '{monument_name}' not found for {pharaoh['king_name']}",
     )
+
+
+@router.get("/")
+async def get_all_pharaohs(
+    services: ServiceContainer = Depends(get_services)
+):
+    """List all pharaohs (names and basic info only)."""
+    collection = services.database_service.get_collection("pharaohs")
+    cursor = collection.find({}, {"_id": 0, "king_name": 1, "monuments": 0})
+    pharaohs = await cursor.to_list(length=None)
+    return {"pharaohs": pharaohs}
+
+
+@router.get("/search")
+async def search_pharaohs(
+    q: str = Query(..., description="Search query for pharaoh name"),
+    services: ServiceContainer = Depends(get_services)
+):
+    """Search for pharaohs by name."""
+    collection = services.database_service.get_collection("pharaohs")
+    # Case-insensitive regex search
+    cursor = collection.find(
+        {"king_name": {"$regex": q, "$options": "i"}},
+        {"_id": 0, "king_name": 1}
+    )
+    results = await cursor.to_list(length=None)
+    return {"results": results}
 
 
 @router.get("/{king_name}")
