@@ -1,0 +1,370 @@
+[
+  {
+    "king_name": "Ramses II",
+    "monuments": [
+      {
+        "name": "The Great Temple of Abu Simbel",
+        "details": "A massive rock-cut temple in Nubia, famous for its four colossal seated statues. Relocated by UNESCO.",
+        "location_name": "Abu Simbel",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=22.3372,31.6258",
+        "image_url": "https://lirp.cdn-website.com/cf150c9f/dms3rep/multi/opt/Nefertari+Temple+at+Abu+Simbel-1920w.jpg",
+        "certain_location": "Main Facade",
+        "location_image_url": "https://www.osiristours.com/wp-content/uploads/2017/07/Abu-Simbel-temples-5.webp"
+      },
+      {
+        "name": "The Ramesseum",
+        "details": "The memorial temple of Ramses II in Luxor. Contains the fallen colossus 'Ozymandias'.",
+        "location_name": "Luxor (West Bank)",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7277,32.6105",
+        "image_url": "https://cdn.britannica.com/20/126720-050-F92E00BD/Ramesseum-Thebes-Egypt.jpg?w=300",
+        "certain_location": "Main Courtyard",
+        "location_image_url": "https://madainproject.com/content/media/collect/ramesseum_139271.jpg"
+      },
+      {
+        "name": "Colossal Statue of Ramses II (GEM)",
+        "details": "A 3,200-year-old statue standing 11 meters tall in the Grand Egyptian Museum atrium.",
+        "location_name": "Grand Egyptian Museum",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=29.9947,31.1197",
+        "image_url": "https://historicaleve.com/wp-content/uploads/2022/01/The-colossal-statue-of-Ramesses-II-exhibited-in-the-Grand-Egyptian-Museum-683x1024.jpg",
+        "certain_location": "Grand Hall (Atrium)",
+        "location_image_url": "https://www.artnews.com/wp-content/uploads/2025/01/Grand-Egyptian-Museum-Image-Copyright-Grand-Egyptian-Museum.png?w=1000&h=750&crop=1&resize=1000%2C750"
+      },
+      {
+        "name": "Luxor Temple Pylon",
+        "details": "The massive first pylon (entrance) and the two seated colossi guarding it.",
+        "location_name": "Luxor Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7000,32.6398",
+        "image_url": "https://ancientegyptonline.co.uk/wp-content/uploads/2020/11/luxortemple5.jpg",
+        "certain_location": "First Pylon",
+        "location_image_url": "https://ancientegyptonline.co.uk/wp-content/uploads/2020/11/LuxorTemple4.jpg"
+      },
+      {
+        "name": "Karnak Hypostyle Hall",
+        "details": "Ramses II completed the decoration of this massive hall with 134 columns.",
+        "location_name": "Karnak Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7188,32.6573",
+        "image_url": "https://www.worldhistory.org/img/r/p/1500x1500/12797.jpg.webp?v=1722269163-1721373829",
+        "certain_location": "Great Hypostyle Hall",
+        "location_image_url": "https://d3rr2gvhjw0wwy.cloudfront.net/uploads/mandators/49581/file-manager/karnak-temple.jpg"
+      },
+      {
+        "name": "Temple of Derr",
+        "details": "A rock-cut temple in Lower Nubia dedicated to Ra-Horakhty and Ramses II.",
+        "location_name": "New Amada Site",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=22.7633,32.2217",
+        "image_url": "https://thebrainchamber.com/wp-content/uploads/2023/11/Temple-of-Derr-El-Derr-4-scaled-e1701212680845.jpg",
+        "location_image_url": "https://thebrainchamber.com/wp-content/uploads/2023/11/Temple-of-Derr-El-Derr-3-scaled.jpg"
+      }
+    ]
+  },
+  {
+    "king_name": "Tutankhamun",
+    "monuments": [
+      {
+        "name": "Tomb KV62",
+        "details": "The famous intact tomb discovered by Howard Carter in 1922.",
+        "location_name": "Valley of the Kings",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7404,32.6019",
+        "image_url": "https://exploreluxor.org/wp-content/uploads/2024/11/Tutankhamen-tomb-1024x683.jpg",
+        "location_image_url": "https://www.worldhistory.org/img/r/p/1500x1500/6884.jpg.webp?v=1769221511"
+      },
+      {
+        "name": "Golden Mask of Tutankhamun",
+        "details": "The death mask made of 11kg of solid gold.",
+        "location_name": "Grand Egyptian Museum",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=29.9947,31.1197",
+        "image_url": "https://greekreporter.com/wp-content/uploads/2024/11/tutankhamuns-golden-mask-may-have-originally-belonged-to-queen-nefertiti-credit-roland-unger-cc-by-sa-3-0.jpg.webp",
+        "certain_location": "Tutankhamun Gallery",
+        "location_image_url": "https://www.artnews.com/wp-content/uploads/2025/01/Grand-Egyptian-Museum-Image-Copyright-Grand-Egyptian-Museum.png?w=1000&h=750&crop=1&resize=1000%2C750"
+      },
+      {
+        "name": "Luxor Temple Colonnade",
+        "details": "Tutankhamun completed the decoration of the great colonnade hall.",
+        "location_name": "Luxor Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7000,32.6398",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/56c13cc00442627a08632989/1578147982534-04UPKNT2DNXJBOOLBWMB/image-asset.jpeg?format=2500w",
+        "location_image_url": "https://www.egypttoursplus.com/wp-content/uploads/2025/07/Luxor-temple-and-the-avenue-of-the-sphinxes-at-dusk-1024x681.jpg"
+      },
+      {
+        "name": "Sphinx of Tutankhamun",
+        "details": "A limestone sphinx with the facial features of the young king.",
+        "location_name": "Luxor Museum",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7073,32.6444",
+        "image_url": "https://media-cdn.tripadvisor.com/media/photo-s/15/4c/37/7b/the-sphinx-of-tutankhamun.jpg",
+        "location_image_url": "https://images.squarespace-cdn.com/content/v1/56c13cc00442627a08632989/1589748843269-75TRXGEE5UBOBUH1BRTE/luxormuseum.jpg?format=2500w"
+      },
+      {
+        "name": "Restoration Stela",
+        "details": "A stela describing the return to traditional gods.",
+        "location_name": "Egyptian Museum (Tahrir)",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=30.0478,31.2336",
+        "image_url": "https://i0.wp.com/www.egyptianhistorypodcast.com/wp-content/uploads/2025/03/141.1_Restoration_Stela.jpg?resize=768%2C1152&ssl=1",
+        "location_image_url": "http://www.egypttoday.com/siteimages/Larg/202104060425572557.jpg"
+      }
+    ]
+  },
+  {
+    "king_name": "Cleopatra VII",
+    "monuments": [
+      {
+        "name": "Sunken Palace (Antirhodos)",
+        "details": "Her royal palace, now submerged in the Eastern Harbor of Alexandria.",
+        "location_name": "Alexandria Eastern Harbor",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=31.2066,29.9002",
+        "image_url": "https://64.media.tumblr.com/8e9fb58d38c0b3e4813a993676548646/tumblr_inline_po7ym0glQg1sho9i8_1280.jpg",
+        "certain_location": "Underwater",
+        "location_image_url": "https://www.montereyboats.com/zupload/library/959/-2944-1000x700-0.jpg?ztv=20170414144321"
+      },
+      {
+        "name": "Dendera Temple Reliefs",
+        "details": "Carving on the rear wall showing Cleopatra and Caesarion.",
+        "location_name": "Dendera Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=26.1423,32.6703",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Trajan_offers_to_Hathor_%26_Ra-Harakhte%2C_Dendera.jpg/960px-Trajan_offers_to_Hathor_%26_Ra-Harakhte%2C_Dendera.jpg",
+        "certain_location": "Rear Exterior Wall",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Dendera_7_977.PNG/1280px-Dendera_7_977.PNG"
+      }
+    ]
+  },
+  {
+    "king_name": "Khufu",
+    "monuments": [
+      {
+        "name": "The Great Pyramid",
+        "details": "The only surviving wonder of the ancient world.",
+        "location_name": "Giza Plateau",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=29.9792,31.1342",
+        "image_url": "https://www.worldhistory.org/img/r/p/1500x1500/6190.jpg.webp?v=1769221514",
+        "location_image_url": "https://www.worldhistory.org/img/r/p/750x750/5687.jpg.webp?v=1769221517"
+      },
+      {
+        "name": "Khufu Ship (Solar Boat)",
+        "details": "Ancient vessel now at the Grand Egyptian Museum.",
+        "location_name": "Grand Egyptian Museum",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=29.9947,31.1197",
+        "image_url": "https://res.cloudinary.com/ddjuftfy2/image/upload/f_webp,c_fill,q_auto/memphis/large/3f038b7ae87bfaed6ba6e1f22ae95bb6.webp",
+        "certain_location": "Solar Boat Building",
+        "location_image_url": "https://www.artnews.com/wp-content/uploads/2025/01/Grand-Egyptian-Museum-Image-Copyright-Grand-Egyptian-Museum.png?w=1000&h=750&crop=1&resize=1000%2C750"
+      },
+      {
+        "name": "Ivory Statuette of Khufu",
+        "details": "The only complete 3D portrait of Khufu (7.5cm tall).",
+        "location_name": "Egyptian Museum (Tahrir)",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=30.0478,31.2336",
+        "image_url": "https://i0.wp.com/egypt-museum.com/wp-content/uploads/2022/08/Statuette-of-King-Khufu-scaled.jpg?resize=767%2C1024&ssl=1",
+        "location_image_url": "http://www.egypttoday.com/siteimages/Larg/202104060425572557.jpg"
+      }
+    ]
+  },
+  {
+    "king_name": "Hatshepsut",
+    "monuments": [
+      {
+        "name": "Mortuary Temple (Deir el-Bahari)",
+        "details": "Masterpiece of architecture built into the cliffs.",
+        "location_name": "Luxor (West Bank)",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7382,32.6066",
+        "image_url": "https://preview.redd.it/deir-el-bahari-chapel-of-anubis-mortuary-temple-of-v0-zecj1wa4vxed1.jpg?width=1080&crop=smart&auto=webp&s=1adce69ec5b2df831267c716bb5aa8832fbbf9c5",
+        "location_image_url": "https://i.redd.it/yf338aepo00d1.jpeg"
+      },
+      {
+        "name": "Tomb KV20",
+        "details": "Her original tomb in the Valley of the Kings.",
+        "location_name": "Valley of the Kings",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7318,32.5835",
+        "image_url": "https://imgc.artprintimages.com/img/print/sarcophagus-of-thutmose-i-from-tomb-kv20-of-thebes-detail_u-l-q1pas2b0.jpg?artHeight=550&artPerspective=n&artWidth=550&background=fbfbfb",
+        "location_image_url": "https://www.worldhistory.org/img/r/p/1500x1500/6884.jpg.webp?v=1769221511"
+      },
+      {
+        "name": "Fallen Obelisk",
+        "details": "Tip of her granite obelisk.",
+        "location_name": "Karnak Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7180,32.6580",
+        "image_url": "https://images.vici.org/size/w2560xh1700/livius/egypt/01thebes/01karnak/karnak_fallen_obelisk_2_ab.jpg",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/5/50/Obelisk5.jpg"
+      },
+      {
+        "name": "Speos Artemidos",
+        "details": "Rock-cut temple in Middle Egypt.",
+        "location_name": "Beni Hasan",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=27.9332,30.8833",
+        "image_url": "https://viajesporegipto.com/fotografias/speos-artemidos.jpg",
+        "location_image_url": "https://viajesporegipto.com/fotografias/speos-artemidos.jpg"
+      }
+    ]
+  },
+  {
+    "king_name": "Seti I",
+    "monuments": [
+      {
+        "name": "Tomb KV17",
+        "details": "The deepest and most decorated tomb in the Valley of the Kings.",
+        "location_name": "Valley of the Kings",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7398,32.6019",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/KV17%2C_the_tomb_of_Pharaoh_Seti_I_of_the_Nineteenth_Dynasty%2C_Valley_of_the_Kings%2C_Egypt_%2849846343021%29.jpg/500px-KV17%2C_the_tomb_of_Pharaoh_Seti_I_of_the_Nineteenth_Dynasty%2C_Valley_of_the_Kings%2C_Egypt_%2849846343021%29.jpg",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Luxor%2C_Tal_der_K%C3%B6nige_%281995%2C_860x605%29.jpg/500px-Luxor%2C_Tal_der_K%C3%B6nige_%281995%2C_860x605%29.jpg"
+      },
+      {
+        "name": "Temple of Seti I (Abydos)",
+        "details": "Famous for the King List and fine reliefs.",
+        "location_name": "Abydos",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=26.1846,31.9190",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/AbydosFacade.jpg/500px-AbydosFacade.jpg",
+        "location_image_url": "https://media.istockphoto.com/id/1188237821/photo/abydos-temple-in-egypt.jpg?s=612x612&w=0&k=20&c=JKmddmZitR7gx3ZDnw55erig5jQsQv8_v2AnpTpEx8k="
+      },
+      {
+        "name": "Osireion",
+        "details": "Mysterious underground structure behind Abydos temple.",
+        "location_name": "Abydos",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=26.1840,31.9185",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Osireion_01.JPG/500px-Osireion_01.JPG",
+        "location_image_url": "https://media.istockphoto.com/id/1188237821/photo/abydos-temple-in-egypt.jpg?s=612x612&w=0&k=20&c=JKmddmZitR7gx3ZDnw55erig5jQsQv8_v2AnpTpEx8k="
+      },
+      {
+        "name": "Mummy of Seti I",
+        "details": "Extremely well-preserved mummy.",
+        "location_name": "NMEC",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=30.0080,31.2480",
+        "image_url": "https://i0.wp.com/egypt-museum.com/wp-content/uploads/2022/08/Mummy-of-King-Seti-I.jpg?w=1280&ssl=1",
+        "location_image_url": "https://egymonuments.gov.eg/media/6211/img_%D9%A2%D9%A0%D9%A1%D9%A7%D9%A0%D9%A2%D9%A2%D9%A2_%D9%A0%D9%A9%D9%A4%D9%A1%D9%A4%D9%A2_%D9%A8%D9%A2%D9%A4-copy.jpg?crop=0.017948664671984593,0.0000000000000013482954355479,0,0&cropmode=percentage&width=645&height=423&rnd=133881529360000000"
+      },
+      {
+        "name": "Great Hypostyle Hall (North)",
+        "details": "Northern half of the Karnak hall.",
+        "location_name": "Karnak Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7188,32.6573",
+        "image_url": "https://lh3.googleusercontent.com/gps-cs-s/AHVAweoEtRNjFn3WhRyXeHnJ9o0O2YSzIhkGnaKO_eFpuM__wwTFlPBbpVXuoXKUO03LVb5tqs5dMHywlRmGRWzp28oVJvHV-jciZKhPUgWkYBave9GRQ7x0p7VSYNjeOz-ipikOttRK8IVkuvc7=s1360-w1360-h1020-rw",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Temple_de_Louxor_68.jpg/500px-Temple_de_Louxor_68.jpg"
+      }
+    ]
+  },
+  {
+    "king_name": "Thutmose III",
+    "monuments": [
+      {
+        "name": "Festival Hall (Akh-Menu)",
+        "details": "Unique columned hall at Karnak.",
+        "location_name": "Karnak Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7188,32.6585",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Egypt-3B-009_-_Festival_Hall_of_Tuthmosis_III_%282216561709%29.jpg/500px-Egypt-3B-009_-_Festival_Hall_of_Tuthmosis_III_%282216561709%29.jpg",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Decorated_pillars_of_the_temple_at_Karnac%2C_Thebes%2C_Egypt._Co_Wellcome_V0049316.jpg/500px-Decorated_pillars_of_the_temple_at_Karnac%2C_Thebes%2C_Egypt._Co_Wellcome_V0049316.jpg"
+      },
+      {
+        "name": "Tomb KV34",
+        "details": "Tomb with unique stick-figure art.",
+        "location_name": "Valley of the Kings",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7378,32.6010",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Egypt.KV34.08.jpg/480px-Egypt.KV34.08.jpg",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Luxor%2C_Tal_der_K%C3%B6nige_%281995%2C_860x605%29.jpg/500px-Luxor%2C_Tal_der_K%C3%B6nige_%281995%2C_860x605%29.jpg"
+      },
+      {
+        "name": "Seventh Pylon",
+        "details": "Gateway at Karnak with smiting scenes.",
+        "location_name": "Karnak Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7178,32.6575",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Karnak_temple_complex_6.JPG/500px-Karnak_temple_complex_6.JPG",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/LuxorHotelsIbnWalidSt.jpg/500px-LuxorHotelsIbnWalidSt.jpg"
+      },
+      {
+        "name": "Statue of Thutmose III",
+        "details": "Greywacke statue from Karnak cachette.",
+        "location_name": "Luxor Museum",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7073,32.6444",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Thutmosis_III-2.jpg/500px-Thutmosis_III-2.jpg",
+        "location_image_url": "https://lh3.googleusercontent.com/gps-cs-s/AHVAweqykt2ljIUlPK2-v0aZKdMDWhBpiwoodxq2v6hSRwqDuVcw05EEZlPlOj2NTJ264OrO9x4EJP3fDtrlT8Bo2n06740UINbPsvu4NVeXH-cFcqUJ40ODjuowe_qjfRT1_JEDWZlU=w408-h306-k-no"
+      }
+    ]
+  },
+  {
+    "king_name": "Amenhotep III",
+    "monuments": [
+      {
+        "name": "Colossi of Memnon",
+        "details": "Massive statues guarding his ruined temple.",
+        "location_name": "Luxor (West Bank)",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7205,32.6105",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Colossi_of_Memnon_May_2015_2.JPG/500px-Colossi_of_Memnon_May_2015_2.JPG",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/LuxorHotelsIbnWalidSt.jpg/500px-LuxorHotelsIbnWalidSt.jpg"
+      },
+      {
+        "name": "Luxor Temple (Core)",
+        "details": "The inner sanctuary and sun court.",
+        "location_name": "Luxor Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7000,32.6398",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Templo_de_Luxor%2C_Luxor%2C_Egipto%2C_2022-04-01%2C_DD_01.jpg/500px-Templo_de_Luxor%2C_Luxor%2C_Egipto%2C_2022-04-01%2C_DD_01.jpg",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/LuxorHotelsIbnWalidSt.jpg/500px-LuxorHotelsIbnWalidSt.jpg"
+      },
+      {
+        "name": "Malkata Palace",
+        "details": "Ruins of his vast mudbrick palace.",
+        "location_name": "Luxor (West Bank)",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7130,32.5900",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/MalqataSite2.jpg/500px-MalqataSite2.jpg",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/LuxorHotelsIbnWalidSt.jpg/500px-LuxorHotelsIbnWalidSt.jpg"
+      },
+      {
+        "name": "Temple of Mut",
+        "details": "Temple with hundreds of Sekhmet statues.",
+        "location_name": "Karnak (Mut)",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7150,32.6560",
+        "image_url": "https://www.egypttoursgate.com/uploads/the-mut-temple.jpg",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/LuxorHotelsIbnWalidSt.jpg/500px-LuxorHotelsIbnWalidSt.jpg"
+      },
+      {
+        "name": "Soleb Temple",
+        "details": "Temple in Sudan.",
+        "location_name": "Soleb, Sudan",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=20.4333,30.3333",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Soleb1.jpg/500px-Soleb1.jpg",
+        "location_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/LuxorHotelsIbnWalidSt.jpg/500px-LuxorHotelsIbnWalidSt.jpg"
+      },
+      {
+        "name": "Amenhotep III and Tiye Statue",
+        "details": "Colossal dyad statue in Cairo.",
+        "location_name": "Egyptian Museum",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=30.0478,31.2336",
+        "image_url": "https://placehold.co/600x400/png?text=Amenhotep+III+and+Tiye",
+        "location_image_url": "https://placehold.co/800x400/png?text=Egyptian+Museum+Location"
+      },
+      {
+        "name": "Third Pylon",
+        "details": "Gateway at Karnak.",
+        "location_name": "Karnak Temple",
+        "location_url": "https://www.google.com/maps/search/?api=1&query=25.7185,32.6575",
+        "image_url": "https://www.memphis.edu/hypostyle/images/3rd_pylon/3rd_pylon_south_tower.jpg",
+        "location_image_url": "https://www.memphis.edu/hypostyle/images/3rd_pylon/3rd_pylon_south_tower.jpg"
+      }
+    ]
+  },
+  {
+  "king_name": "Senusret III",
+  "monuments": [
+    {
+      "name": "Pyramid of Senusret III",
+      "details": "His mudbrick pyramid at Dahshur. Famous for having no entrance on the north side (to fool robbers) and a complex underground network.",
+      "location_name": "Dahshur Necropolis",
+      "location_url": "https://www.google.com/maps/search/?api=1&query=29.8197,31.2227",
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Pyramid_of_Senusret_III_12.jpg/500px-Pyramid_of_Senusret_III_12.jpg",
+      "location_image_url": "https://encrypted-tbn0.gstatic.com/licensed-image?q=tbn:ANd9GcSJZa254CgpjP2iCdDUvwMgLWitHnzcEjw08g8f9B52zufHVhY0fiMChE_x5EBBNcFoM4FAgI2Ff0hXJ7xHpDdDgHtA&s=19"
+    },
+    {
+      "name": "Sphinx of Senusret III",
+      "details": "A masterpiece of the 'Pessimistic Style', showing the King with a weary, human face on a lion's body.",
+      "location_name": "The Metropolitan Museum of Art (NYC)",
+      "location_url": "https://www.google.com/maps/search/?api=1&query=Metropolitan+Museum+of+Art+New+York",
+      "image_url": "https://collectionapi.metmuseum.org/api/collection/v1/iiif/544186/1216912/main-image",
+      "certain_location": "Gallery 111 (The Great Hall)",
+      "location_image_url": "https://cdn.sanity.io/images/cctd4ker/production/d5284eba46108fdf28650637ade3ee28ea1b42fa-7944x4764.jpg?rect=167,181,7708,4333&w=1920&q=75&fit=clip&auto=format"
+    },
+    {
+      "name": "Granite Statue of Senusret III",
+      "details": "One of the three famous 'sad statues' from Deir el-Bahari, showing his large ears (to hear prayers) and heavy eyelids.",
+      "location_name": "The British Museum (London)",
+      "location_url": "https://www.google.com/maps/search/?api=1&query=British+Museum+London",
+      "image_url": "https://smarthistory.org/wp-content/uploads/2021/05/senusret-III.jpg",
+      "certain_location": "Room 4 (Egyptian Sculpture)",
+      "location_image_url": "https://exploreluxor.org/wp-content/uploads/2021/09/luxor-museum.jpg"
+    }
+  ]
+}
+]
