@@ -118,13 +118,13 @@ const ARScreen = () => {
         <TouchableOpacity 
           style={[styles.button, styles.buttonMale]} 
           onPress={() => openUnity('HumanM')}>
-          <Text style={styles.buttonText}>Ramses (Male)</Text>
+          <Text style={styles.buttonText}>Human Model</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={[styles.button, styles.buttonFemale]} 
-          onPress={() => openUnity('HumanF')}>
-          <Text style={styles.buttonText}>Nefertari (Female)</Text>
+          onPress={() => openUnity('statue_of_ramesses_iii')}>
+          <Text style={styles.buttonText}>Ramses III Statue</Text>
         </TouchableOpacity>
       </View>
     </View>

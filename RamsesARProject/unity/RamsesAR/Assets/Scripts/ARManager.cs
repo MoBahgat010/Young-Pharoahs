@@ -39,7 +39,7 @@ public class ARManager : MonoBehaviour
 
     private void LoadDefaultCharacter()
     {
-        string defaultId = "HumanM";
+        string defaultId = "statue_of_ramesses_iii";
         Debug.Log($"ARManager: Auto-loading default character: {defaultId}");
         
         GameObject prefab = LoadCharacterPrefab(defaultId);
@@ -111,8 +111,10 @@ public class ARManager : MonoBehaviour
         {
             Debug.LogError($"ARManager: Could not find prefab at Resources/{path}");
             
-            // Fallback try loading "HumanM" or "HumanF" directly if ID doesn't match exactly
-            if (characterId.ToLower().Contains("ramses") || characterId.ToLower().Contains("male"))
+            // Fallback try loading by name keyword
+            if (characterId.ToLower().Contains("ramesses") || characterId.ToLower().Contains("ramses"))
+                prefab = Resources.Load<GameObject>("Characters/statue_of_ramesses_iii");
+            else if (characterId.ToLower().Contains("male") || characterId.ToLower().Contains("human"))
                 prefab = Resources.Load<GameObject>("Characters/HumanM");
             else if (characterId.ToLower().Contains("nefertari") || characterId.ToLower().Contains("female"))
                 prefab = Resources.Load<GameObject>("Characters/HumanF");

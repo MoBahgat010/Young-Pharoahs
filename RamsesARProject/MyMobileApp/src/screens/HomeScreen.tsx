@@ -86,6 +86,20 @@ export function HomeScreen({navigation}: Props) {
           </Text>
         </View>
 
+        {/* ─ Test AR Button ──────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.testArButton}
+          activeOpacity={0.8}
+          onPress={() =>
+            navigation.navigate('AR', {
+              characterId: 'statue_of_ramesses_iii',
+              characterName: 'Ramses',
+            })
+          }>
+          <Text style={styles.testArIcon}>𓁹</Text>
+          <Text style={styles.testArText}>Test AR Experience</Text>
+        </TouchableOpacity>
+
         {/* ─ Pharaoh Carousel ─────────────────────────────────── */}
         <View style={styles.carouselSection}>
           <View style={styles.carouselHeader}>
@@ -230,6 +244,35 @@ const styles = StyleSheet.create({
   mainTitleHighlight: {
     fontWeight: '700',
     color: Colors.primary,
+  },
+
+  // ── Test AR Button ────────────────────────────────────────
+  testArButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: BorderRadius.full,
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+    elevation: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  testArIcon: {
+    fontSize: 20,
+    color: Colors.backgroundDark,
+  },
+  testArText: {
+    fontSize: FontSizes.base,
+    fontWeight: '700',
+    color: Colors.backgroundDark,
+    letterSpacing: 1,
   },
 
   // ── Carousel ──────────────────────────────────────────────
