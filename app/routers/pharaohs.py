@@ -149,8 +149,8 @@ async def get_nearby_places(
 
     # 4. Generate Uber deep link
     uber_link = None
-    # if services.uber_service:
-    #     uber_link = services.uber_service.get_deep_link(lat, lng, nickname=monument["name"])
+    if services.uber_service:
+        uber_link = services.uber_service.get_deep_link(lat, lng, nickname=monument["name"])
 
     return {
         "king_name": pharaoh["king_name"],
@@ -169,7 +169,7 @@ def _enrich_monument_with_uber(monument: dict, services: ServiceContainer):
     if location_url:
         try:
             lat, lng = PlacesService.extract_coords_from_url(location_url)
-            # monument["uber_link"] = services.uber_service.get_deep_link(lat, lng, nickname=monument.get("name"))
+            monument["uber_link"] = services.uber_service.get_deep_link(lat, lng, nickname=monument.get("name"))
         except ValueError:
             pass # Skip if coords cannot be parsed
     return monument
