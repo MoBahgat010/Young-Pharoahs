@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   StatusBar,
   ScrollView,
@@ -11,15 +10,20 @@ import {
   Dimensions,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import type {CompositeScreenProps} from '@react-navigation/native';
+import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import type {RootStackParamList} from '../../App';
+import type {RootStackParamList, TabParamList} from '../../App';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
-import {PHARAOHS, HOME_HERO_IMAGE, USER_AVATAR} from '../data/pharaohs';
+import {PHARAOHS, HOME_HERO_IMAGE} from '../data/pharaohs';
 import {PharaohCard} from '../components/PharaohCard';
 import {SearchBar} from '../components/SearchBar';
 import type {Pharaoh} from '../data/pharaohs';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<TabParamList, 'HomeTab'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
 const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -30,13 +34,12 @@ export function HomeScreen({navigation}: Props) {
     navigation.navigate('Chat', {pharaohName: pharaoh.name});
   };
 
-  const handleTextSubmit = (text: string) => {
-    navigation.navigate('Chat', {initialQuery: text});
+  const handleTextSubmit = (text: string, imageUri?: string) => {
+    navigation.navigate('Chat', {initialQuery: text, imageUri});
   };
 
-  const handleMicPress = () => {
-    // TODO: Voice recording -> navigate to chat with voice
-    navigation.navigate('Chat', {voiceMode: true});
+  const handleVoiceSubmit = (audioFilePath: string) => {
+    navigation.navigate('Chat', {voiceMode: true, audioFilePath});
   };
 
   const handleScanPress = () => {
@@ -56,9 +59,6 @@ export function HomeScreen({navigation}: Props) {
         source={{uri: HOME_HERO_IMAGE}}
         style={styles.backgroundImage}
         resizeMode="cover">
-        {/* Gradient overlay */}
-        <View style={styles.gradientTop} />
-        <View style={styles.gradientBottom} />
       </ImageBackground>
 
       {/* ── Content ──────────────────────────────────────────── */}
@@ -69,9 +69,6 @@ export function HomeScreen({navigation}: Props) {
             <Text style={styles.logoIcon}>𓂀</Text>
             <Text style={styles.logoText}>PHARAOHS.AI</Text>
           </View>
-          <TouchableOpacity style={styles.avatarButton} activeOpacity={0.7}>
-            <Image source={{uri: USER_AVATAR}} style={styles.avatar} />
-          </TouchableOpacity>
         </View>
 
         {/* ─ Spacer (pushes content to bottom) ───────────────── */}
@@ -85,20 +82,6 @@ export function HomeScreen({navigation}: Props) {
             <Text style={styles.mainTitleHighlight}>Greatest Rulers</Text>
           </Text>
         </View>
-
-        {/* ─ Test AR Button ──────────────────────────────────── */}
-        <TouchableOpacity
-          style={styles.testArButton}
-          activeOpacity={0.8}
-          onPress={() =>
-            navigation.navigate('AR', {
-              characterId: 'statue_of_ramesses_iii',
-              characterName: 'Ramses',
-            })
-          }>
-          <Text style={styles.testArIcon}>𓁹</Text>
-          <Text style={styles.testArText}>Test AR Experience</Text>
-        </TouchableOpacity>
 
         {/* ─ Pharaoh Carousel ─────────────────────────────────── */}
         <View style={styles.carouselSection}>
@@ -133,7 +116,7 @@ export function HomeScreen({navigation}: Props) {
         <View style={styles.searchBarContainer}>
           <SearchBar
             onSubmitText={handleTextSubmit}
-            onPressMic={handleMicPress}
+            onSubmitVoice={handleVoiceSubmit}
             onPressScan={handleScanPress}
           />
         </View>
@@ -154,22 +137,6 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     transform: [{scale: 1.05}],
-  },
-  gradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: SCREEN_HEIGHT * 0.4,
-    backgroundColor: Colors.overlayDark80,
-  },
-  gradientBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: SCREEN_HEIGHT * 0.5,
-    backgroundColor: Colors.overlayDark95,
   },
 
   // ── Content Layout ────────────────────────────────────────
@@ -201,20 +168,6 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     color: Colors.textWhite90,
   },
-  avatarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.full,
-    overflow: 'hidden',
-    backgroundColor: Colors.textWhite10,
-    borderWidth: 1,
-    borderColor: Colors.textWhite10,
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
 
   // ── Spacer ────────────────────────────────────────────────
   spacer: {
@@ -244,35 +197,6 @@ const styles = StyleSheet.create({
   mainTitleHighlight: {
     fontWeight: '700',
     color: Colors.primary,
-  },
-
-  // ── Test AR Button ────────────────────────────────────────
-  testArButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    backgroundColor: Colors.primary,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xxl,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.xl,
-    gap: Spacing.sm,
-    elevation: 4,
-    shadowColor: Colors.primary,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  testArIcon: {
-    fontSize: 20,
-    color: Colors.backgroundDark,
-  },
-  testArText: {
-    fontSize: FontSizes.base,
-    fontWeight: '700',
-    color: Colors.backgroundDark,
-    letterSpacing: 1,
   },
 
   // ── Carousel ──────────────────────────────────────────────
@@ -313,6 +237,6 @@ const styles = StyleSheet.create({
 
   // ── Search Bar ────────────────────────────────────────────
   searchBarContainer: {
-    paddingBottom: Spacing.xxxl,
+    paddingBottom: Spacing.md,
   },
 });
