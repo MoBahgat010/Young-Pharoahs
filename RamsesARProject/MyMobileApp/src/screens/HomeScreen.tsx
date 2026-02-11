@@ -47,7 +47,7 @@ export function HomeScreen({navigation}: Props) {
   };
 
   const handleViewAll = () => {
-    // TODO: Navigate to full pharaohs list
+    navigation.navigate('MainTabs', {screen: 'KingsTab'});
   };
 
   return (
