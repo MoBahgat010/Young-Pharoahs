@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using System.Collections.Generic;
@@ -24,6 +25,67 @@ public class CharacterPlacer : MonoBehaviour
     private GameObject placedCharacter;
     private bool isPlacementValid = false;
     private Pose placementPose;
+    
+    // Instruction UI (created programmatically)
+    private Canvas instructionCanvas;
+    private Text instructionText;
+    private Text scanningText;
+    
+    private void Start()
+    {
+        CreateInstructionUI();
+    }
+    
+    /// <summary>
+    /// Creates the on-screen instruction UI programmatically.
+    /// </summary>
+    private void CreateInstructionUI()
+    {
+        GameObject canvasObj = new GameObject("InstructionCanvas");
+        instructionCanvas = canvasObj.AddComponent<Canvas>();
+        instructionCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        instructionCanvas.sortingOrder = 100;
+        var scaler = canvasObj.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1080, 1920);
+        canvasObj.AddComponent<GraphicRaycaster>();
+
+        GameObject scanObj = new GameObject("ScanningText");
+        scanObj.transform.SetParent(canvasObj.transform, false);
+        scanningText = scanObj.AddComponent<Text>();
+        scanningText.text = "Point your camera at a flat surface\u2026";
+        scanningText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (scanningText.font == null) scanningText.font = Font.CreateDynamicFontFromOSFont("Arial", 32);
+        scanningText.fontSize = 32;
+        scanningText.color = new Color(1f, 1f, 1f, 0.85f);
+        scanningText.alignment = TextAnchor.MiddleCenter;
+        var scanRect = scanObj.GetComponent<RectTransform>();
+        scanRect.anchorMin = new Vector2(0.1f, 0.42f);
+        scanRect.anchorMax = new Vector2(0.9f, 0.52f);
+        scanRect.offsetMin = Vector2.zero;
+        scanRect.offsetMax = Vector2.zero;
+
+        GameObject textObj = new GameObject("TapToStartText");
+        textObj.transform.SetParent(canvasObj.transform, false);
+        instructionText = textObj.AddComponent<Text>();
+        instructionText.text = "TAP TO START";
+        instructionText.font = scanningText.font;
+        instructionText.fontSize = 54;
+        instructionText.fontStyle = FontStyle.Bold;
+        instructionText.color = new Color(0.957f, 0.753f, 0.145f, 1f);
+        instructionText.alignment = TextAnchor.MiddleCenter;
+        var outline = textObj.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
+        outline.effectDistance = new Vector2(2, -2);
+        var textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0.1f, 0.4f);
+        textRect.anchorMax = new Vector2(0.9f, 0.6f);
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        scanningText.gameObject.SetActive(true);
+        instructionText.gameObject.SetActive(false);
+    }
     
     private void Update()
     {
@@ -58,6 +120,13 @@ public class CharacterPlacer : MonoBehaviour
             {
                 placementIndicator.SetActive(false);
             }
+        }
+        
+        // Update instruction overlay
+        if (placedCharacter == null)
+        {
+            if (scanningText != null) scanningText.gameObject.SetActive(!isPlacementValid);
+            if (instructionText != null) instructionText.gameObject.SetActive(isPlacementValid);
         }
     }
     
@@ -116,12 +185,20 @@ public class CharacterPlacer : MonoBehaviour
         // Notify React Native that character was placed
         SendMessageToReactNative("character_placed");
         
-        // Get audio controller and trigger playback
+        // Hide instruction UI
+        if (instructionCanvas != null)
+            instructionCanvas.gameObject.SetActive(false);
+        
+        // Play narration audio and auto-close when done
         AudioController audioController = placedCharacter.GetComponent<AudioController>();
-        if (audioController != null)
+        if (audioController == null)
+            audioController = placedCharacter.AddComponent<AudioController>();
+        audioController.onAudioComplete = () =>
         {
-            audioController.PlayAudio();
-        }
+            Debug.Log("CharacterPlacer: Narration finished — notifying RN to close");
+            SendMessageToReactNative("audio_complete");
+        };
+        audioController.PlayAudio();
     }
     
     /// <summary>
@@ -158,8 +235,14 @@ public class CharacterPlacer : MonoBehaviour
     
     private void SendMessageToReactNative(string message)
     {
-        // Unity-to-ReactNative messaging
-        // This requires the bridge plugin to be properly set up
         Debug.Log($"[Unity->RN] {message}");
+        if (UnityMessageManager.Instance != null)
+        {
+            UnityMessageManager.Instance.SendMessageToRN(message);
+        }
+        else
+        {
+            UnityMessageManagerNativeAPI.SendMessageToRN(message);
+        }
     }
 }

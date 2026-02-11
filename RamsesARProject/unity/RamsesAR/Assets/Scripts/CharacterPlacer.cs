@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using System.Collections.Generic;
@@ -30,9 +31,15 @@ public class CharacterPlacer : MonoBehaviour
     private float logTimer = 0f;
     private float timeSinceStart = 0f;
 
+    // Instruction UI (created programmatically)
+    private Canvas instructionCanvas;
+    private Text instructionText;
+    private Text scanningText;
+
     private void Start()
     {
         Debug.Log("CharacterPlacer: Start() called");
+        CreateInstructionUI();
         
         // Log subsystem info
         if (planeManager != null)
@@ -40,6 +47,61 @@ public class CharacterPlacer : MonoBehaviour
             var subsystem = planeManager.subsystem;
             Debug.Log($"CharacterPlacer: PlaneManager subsystem={(subsystem != null ? "EXISTS" : "NULL")}, running={(subsystem != null && subsystem.running)}");
         }
+    }
+
+    /// <summary>
+    /// Creates the on-screen instruction UI programmatically.
+    /// </summary>
+    private void CreateInstructionUI()
+    {
+        GameObject canvasObj = new GameObject("InstructionCanvas");
+        instructionCanvas = canvasObj.AddComponent<Canvas>();
+        instructionCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        instructionCanvas.sortingOrder = 100;
+        var scaler = canvasObj.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1080, 1920);
+        canvasObj.AddComponent<GraphicRaycaster>();
+
+        // --- "Scanning..." label (shown while looking for surfaces) ---
+        GameObject scanObj = new GameObject("ScanningText");
+        scanObj.transform.SetParent(canvasObj.transform, false);
+        scanningText = scanObj.AddComponent<Text>();
+        scanningText.text = "Point your camera at a flat surface\u2026";
+        scanningText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (scanningText.font == null) scanningText.font = Font.CreateDynamicFontFromOSFont("Arial", 32);
+        scanningText.fontSize = 32;
+        scanningText.color = new Color(1f, 1f, 1f, 0.85f);
+        scanningText.alignment = TextAnchor.MiddleCenter;
+        var scanRect = scanObj.GetComponent<RectTransform>();
+        scanRect.anchorMin = new Vector2(0.1f, 0.42f);
+        scanRect.anchorMax = new Vector2(0.9f, 0.52f);
+        scanRect.offsetMin = Vector2.zero;
+        scanRect.offsetMax = Vector2.zero;
+
+        // --- "TAP TO START" label (shown once a surface is found) ---
+        GameObject textObj = new GameObject("TapToStartText");
+        textObj.transform.SetParent(canvasObj.transform, false);
+        instructionText = textObj.AddComponent<Text>();
+        instructionText.text = "TAP TO START";
+        instructionText.font = scanningText.font;
+        instructionText.fontSize = 54;
+        instructionText.fontStyle = FontStyle.Bold;
+        instructionText.color = new Color(0.957f, 0.753f, 0.145f, 1f); // Gold #F4C025
+        instructionText.alignment = TextAnchor.MiddleCenter;
+        var outline = textObj.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
+        outline.effectDistance = new Vector2(2, -2);
+        var textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0.1f, 0.4f);
+        textRect.anchorMax = new Vector2(0.9f, 0.6f);
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        // Start: show scanning hint, hide tap instruction
+        scanningText.gameObject.SetActive(true);
+        instructionText.gameObject.SetActive(false);
+        Debug.Log("CharacterPlacer: Instruction UI created");
     }
 
     private void Update()
@@ -124,6 +186,13 @@ public class CharacterPlacer : MonoBehaviour
                 placementIndicator.transform.position = placementPose.position;
                 placementIndicator.transform.rotation = placementPose.rotation;
             }
+        }
+        
+        // Update instruction overlay
+        if (placedCharacter == null)
+        {
+            if (scanningText != null) scanningText.gameObject.SetActive(!isPlacementValid);
+            if (instructionText != null) instructionText.gameObject.SetActive(isPlacementValid);
         }
     }
     
@@ -219,6 +288,21 @@ public class CharacterPlacer : MonoBehaviour
         
         SetPlanesVisible(false);
         SendMessageToReactNative("character_placed");
+        
+        // Hide instruction UI
+        if (instructionCanvas != null)
+            instructionCanvas.gameObject.SetActive(false);
+        
+        // Play narration audio and auto-close when done
+        AudioController audioController = placedCharacter.GetComponent<AudioController>();
+        if (audioController == null)
+            audioController = placedCharacter.AddComponent<AudioController>();
+        audioController.onAudioComplete = () =>
+        {
+            Debug.Log("CharacterPlacer: Narration finished — notifying RN to close");
+            SendMessageToReactNative("audio_complete");
+        };
+        audioController.PlayAudio();
     }
     
     public void SetCharacterPrefab(GameObject prefab)
@@ -252,5 +336,13 @@ public class CharacterPlacer : MonoBehaviour
     private void SendMessageToReactNative(string message)
     {
         Debug.Log($"[Unity->RN] {message}");
+        if (UnityMessageManager.Instance != null)
+        {
+            UnityMessageManager.Instance.SendMessageToRN(message);
+        }
+        else
+        {
+            UnityMessageManagerNativeAPI.SendMessageToRN(message);
+        }
     }
 }

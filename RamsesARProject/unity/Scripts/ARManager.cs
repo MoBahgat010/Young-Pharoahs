@@ -100,12 +100,15 @@ public class ARManager : MonoBehaviour
     /// </summary>
     private void SendMessageToReactNative(string message)
     {
-        // The react-native-unity bridge provides a way to send messages
-        // This is handled by the UnityMessageManager from the bridge
         Debug.Log($"[Unity->RN] {message}");
-        
-        // If using @azesmway/react-native-unity, messages are sent via:
-        // UnityMessageManager.Instance.SendMessageToRN(message);
+        if (UnityMessageManager.Instance != null)
+        {
+            UnityMessageManager.Instance.SendMessageToRN(message);
+        }
+        else
+        {
+            UnityMessageManagerNativeAPI.SendMessageToRN(message);
+        }
     }
     
     [Serializable]

@@ -1,4 +1,4 @@
-import React, {useState, useRef, useCallback} from 'react';
+import React, {useState, useRef, useCallback, useEffect} from 'react';
 import {
   View,
   Text,
@@ -38,8 +38,25 @@ const ARScreen = () => {
       }
     } else if (message === 'character_loaded') {
       console.log('Character loaded successfully');
+    } else if (message === 'character_placed') {
+      console.log('Character placed on surface');
+    } else if (message === 'audio_complete') {
+      console.log('Narration finished — returning to RN');
+      setShowUnity(false);
+      setSelectedCharacter(null);
     }
   }, [selectedCharacter, sendCharacterToUnity]);
+
+  // Safety timeout: auto-close Unity after 65s (audio is ~52s + buffer)
+  useEffect(() => {
+    if (!showUnity) return;
+    const timer = setTimeout(() => {
+      console.warn('AR safety timeout — returning to RN');
+      setShowUnity(false);
+      setSelectedCharacter(null);
+    }, 65000);
+    return () => clearTimeout(timer);
+  }, [showUnity]);
 
   const openUnity = async (characterId: string) => {
     setSelectedCharacter(characterId);
@@ -79,7 +96,6 @@ const ARScreen = () => {
   };
 
   const closeUnity = () => {
-    unityRef.current?.unloadUnity();
     setShowUnity(false);
     setSelectedCharacter(null);
   };

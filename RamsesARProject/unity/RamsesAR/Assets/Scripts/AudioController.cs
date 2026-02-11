@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Networking;
+using System;
 using System.Collections;
 
 /// <summary>
@@ -15,8 +16,14 @@ public class AudioController : MonoBehaviour
     [SerializeField] private bool playOnStart = false;
     [SerializeField] private float volume = 1f;
     
+    /// <summary>
+    /// Callback invoked when audio playback finishes.
+    /// </summary>
+    public Action onAudioComplete;
+    
     private string currentAudioUrl;
     private bool isLoading = false;
+    private AudioClip hardcodedClip;
     
     private void Start()
     {
@@ -30,10 +37,20 @@ public class AudioController : MonoBehaviour
         }
         
         audioSource.volume = volume;
-        audioSource.spatialBlend = 1f; // 3D audio
+        audioSource.spatialBlend = 0f; // 2D audio — narration plays at full volume regardless of distance
         audioSource.playOnAwake = false;
         
-        if (playOnStart && !string.IsNullOrEmpty(currentAudioUrl))
+        // Load hardcoded narration clip from Resources
+        if (hardcodedClip == null)
+        {
+            hardcodedClip = Resources.Load<AudioClip>("Audio/response_audio");
+            if (hardcodedClip != null)
+                Debug.Log($"AudioController: Loaded hardcoded clip ({hardcodedClip.length:F1}s)");
+            else
+                Debug.LogWarning("AudioController: No hardcoded clip at Resources/Audio/response_audio");
+        }
+        
+        if (playOnStart)
         {
             PlayAudio();
         }
@@ -53,10 +70,34 @@ public class AudioController : MonoBehaviour
     /// </summary>
     public void PlayAudio()
     {
-        if (audioSource.clip != null)
+        // Ensure audio source is ready (handles AddComponent at runtime)
+        if (audioSource == null)
+        {
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null)
+                audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.volume = 1f;
+            audioSource.spatialBlend = 0f;
+            audioSource.playOnAwake = false;
+        }
+        
+        // Lazy-load hardcoded clip if needed
+        if (hardcodedClip == null)
+            hardcodedClip = Resources.Load<AudioClip>("Audio/response_audio");
+        
+        // Priority: hardcoded clip > already-assigned clip > URL download
+        if (hardcodedClip != null)
+        {
+            audioSource.clip = hardcodedClip;
+            audioSource.Play();
+            Debug.Log("AudioController: Playing hardcoded narration clip");
+            StartCoroutine(WaitForAudioComplete());
+        }
+        else if (audioSource.clip != null)
         {
             audioSource.Play();
-            Debug.Log("AudioController: Playing audio");
+            Debug.Log("AudioController: Playing assigned clip");
+            StartCoroutine(WaitForAudioComplete());
         }
         else if (!string.IsNullOrEmpty(currentAudioUrl))
         {
@@ -109,7 +150,7 @@ public class AudioController : MonoBehaviour
         }
         
         Debug.Log("AudioController: Audio playback complete");
-        // Could notify React Native here
+        onAudioComplete?.Invoke();
     }
     
     /// <summary>
