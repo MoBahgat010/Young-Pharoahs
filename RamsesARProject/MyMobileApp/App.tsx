@@ -3,12 +3,13 @@ import {StyleSheet} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {Home, Users, Navigation, Box} from 'lucide-react-native';
+import {Home, Users, Navigation, Box, MessageSquare} from 'lucide-react-native';
 import {HomeScreen} from './src/screens/HomeScreen';
 import {KingsScreen} from './src/screens/KingsScreen';
 import {LocationsScreen} from './src/screens/LocationsScreen';
 import ARScreen from './src/screens/ARScreen';
 import {ChatScreen} from './src/screens/ChatScreen';
+import {ConversationsListScreen} from './src/screens/ConversationsListScreen';
 import {MonumentDetailsScreen} from './src/screens/MonumentDetailsScreen';
 import type {Monument} from './src/services/apiService';
 
@@ -21,6 +22,7 @@ export type RootStackParamList = {
     voiceMode?: boolean;
     imageUri?: string;
     audioFilePath?: string;
+    conversationId?: string;
   };
   MonumentDetails: {
     kingName: string;
@@ -30,6 +32,7 @@ export type RootStackParamList = {
 
 export type TabParamList = {
   HomeTab: undefined;
+  ChatsTab: undefined;
   KingsTab: undefined;
   LocationsTab: undefined;
   ARTab: {
@@ -43,6 +46,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 const TAB_ICONS = {
   HomeTab: Home,
+  ChatsTab: MessageSquare,
   KingsTab: Users,
   LocationsTab: Navigation,
   ARTab: Box,
@@ -74,6 +78,14 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({focused}) => <TabBarIcon route="HomeTab" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="ChatsTab"
+        component={ConversationsListScreen}
+        options={{
+          tabBarLabel: 'Chats',
+          tabBarIcon: ({focused}) => <TabBarIcon route="ChatsTab" focused={focused} />,
         }}
       />
       <Tab.Screen

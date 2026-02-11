@@ -2,15 +2,22 @@
  * API Service
  * ============
  * Communicates with the FastAPI backend for RAG queries,
- * voice queries, and image descriptions.
+ * voice queries, image descriptions, conversations, and TTS.
  */
 
-const BASE_URL = 'https://8jhl85nn-8000.uks1.devtunnels.ms';
+import type {
+  ConversationsListResponse,
+  ConversationDetail,
+  TTSResponse,
+} from '../types/conversation';
+
+const BASE_URL = 'http://192.241.170.15:80';
 
 // ── Types ──────────────────────────────────────────────────────
 
 export interface QueryResponse {
   answer: string;
+  conversation_id: string;
   image_descriptions: string[];
   search_query: string;
   top_k: number;
@@ -22,6 +29,7 @@ export interface QueryResponse {
 export interface VoiceQueryResponse {
   transcript: string;
   answer: string;
+  conversation_id: string;
   audio_base64: string;
   tts_provider: string;
   tts_model: string;
@@ -86,10 +94,14 @@ export async function sendTextQuery(
   prompt: string,
   imageDescriptions?: string[],
   gender: 'male' | 'female' = 'male',
+  conversationId?: string | null,
 ): Promise<QueryResponse> {
   const body: Record<string, unknown> = {prompt, gender};
   if (imageDescriptions && imageDescriptions.length > 0) {
     body.image_descriptions = imageDescriptions;
+  }
+  if (conversationId) {
+    body.conversation_id = conversationId;
   }
 
   const res = await fetch(`${BASE_URL}/query`, {
@@ -116,9 +128,10 @@ export async function sendVoiceQuery(
     tts_provider?: string;
     tts_model?: string;
     stt_model?: string;
+    conversationId?: string | null;
   },
 ): Promise<VoiceQueryResponse> {
-  const {mimeType = 'audio/wav', gender, tts_provider, tts_model, stt_model} = options ?? {};
+  const {mimeType = 'audio/wav', gender, tts_provider, tts_model, stt_model, conversationId} = options ?? {};
   const formData = new FormData();
   formData.append('audio', {
     uri: audioFilePath,
@@ -129,6 +142,7 @@ export async function sendVoiceQuery(
   if (tts_provider) { formData.append('tts_provider', tts_provider); }
   if (tts_model) { formData.append('tts_model', tts_model); }
   if (stt_model) { formData.append('stt_model', stt_model); }
+  if (conversationId) { formData.append('conversation_id', conversationId); }
 
   const res = await fetch(`${BASE_URL}/voice-query`, {
     method: 'POST',
@@ -201,6 +215,87 @@ export async function searchPharaohsMonuments(
   }
 
   return res.json();
+}
+
+// ── Text-to-Speech ─────────────────────────────────────────────
+
+export async function sendTTS(
+  text: string,
+  conversationId?: string | null,
+  gender?: 'male' | 'female',
+  ttsModel?: string,
+): Promise<TTSResponse> {
+  const formData = new FormData();
+  formData.append('text', text);
+  if (conversationId) { formData.append('conversation_id', conversationId); }
+  if (gender) { formData.append('gender', gender); }
+  if (ttsModel) { formData.append('tts_model', ttsModel); }
+
+  const res = await fetch(`${BASE_URL}/tts`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`TTS failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
+}
+
+// ── Conversations ──────────────────────────────────────────────
+
+export async function fetchConversations(
+  limit: number = 20,
+): Promise<ConversationsListResponse> {
+  const res = await fetch(`${BASE_URL}/conversations?limit=${limit}`);
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Fetch conversations failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
+}
+
+export async function fetchConversation(
+  conversationId: string,
+): Promise<ConversationDetail> {
+  const res = await fetch(`${BASE_URL}/conversations/${encodeURIComponent(conversationId)}`);
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Fetch conversation failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
+}
+
+export async function createConversation(): Promise<{conversation_id: string}> {
+  const res = await fetch(`${BASE_URL}/conversations`, {
+    method: 'POST',
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Create conversation failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
+}
+
+export async function deleteConversation(
+  conversationId: string,
+): Promise<void> {
+  const res = await fetch(`${BASE_URL}/conversations/${encodeURIComponent(conversationId)}`, {
+    method: 'DELETE',
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Delete conversation failed (${res.status}): ${err}`);
+  }
 }
 
 // ── Monument Nearby Places ─────────────────────────────────────

@@ -6,7 +6,6 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
-  Image,
   TextInput,
   ActivityIndicator,
   Keyboard,
@@ -14,34 +13,29 @@ import {
   Platform,
   Alert,
   Animated,
-  Dimensions,
+  Image,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {ArrowLeft, Camera, ImageIcon, Mic, Send, Square, Trash2, MapPin, ChevronUp, ChevronDown} from 'lucide-react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../../App';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
-
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
-import {sendTextQuery, sendVoiceQuery, describeImages, fetchPharaohMonuments} from '../services/apiService';
+import {sendTextQuery, sendVoiceQuery, sendTTS, describeImages, fetchPharaohMonuments, fetchConversation} from '../services/apiService';
 import type {Monument} from '../services/apiService';
 import {stopAudio, startRecording, stopRecording} from '../services/voiceService';
 import {takePhoto, pickFromGallery, type PickedImage} from '../services/imageService';
-import {VoiceMessageBubble} from '../components/VoiceMessageBubble';
+import {MessageBubble} from '../components/MessageBubble';
+import type {ChatMessage} from '../types/conversation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  text: string;
-  imageUri?: string;
-  audioBase64?: string;
-  voiceFilePath?: string;
-  voiceDurationMs?: number;
+let _msgIdCounter = 0;
+function nextMsgId(): string {
+  return `msg-${Date.now()}-${++_msgIdCounter}`;
 }
 
 export function ChatScreen({navigation, route}: Props) {
-  const {pharaohName, gender, initialQuery, voiceMode, imageUri, audioFilePath} =
+  const {pharaohName, gender, initialQuery, voiceMode, imageUri, audioFilePath, conversationId: resumeConvId} =
     route.params ?? {};
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -50,6 +44,7 @@ export function ChatScreen({navigation, route}: Props) {
   const [error, setError] = useState<string | null>(null);
   const [monuments, setMonuments] = useState<Monument[]>([]);
   const [monumentsExpanded, setMonumentsExpanded] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(resumeConvId ?? null);
 
   // ── Input bar state ─────────────────────────────────────────
   const [inputText, setInputText] = useState('');
@@ -61,8 +56,23 @@ export function ChatScreen({navigation, route}: Props) {
   const inputRef = useRef<TextInput>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const conversationIdRef = useRef<string | null>(resumeConvId ?? null);
 
   const currentGender = gender || 'male';
+
+  // Keep ref in sync for use inside callbacks
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
+  // Helper to capture conversation_id from API responses
+  const captureConversationId = useCallback((id?: string | null) => {
+    if (id && !conversationIdRef.current) {
+      setConversationId(id);
+      conversationIdRef.current = id;
+      console.log('[Chat] Conversation started:', id);
+    }
+  }, []);
 
   // ── Recording pulse animation ──────────────────────────────
   useEffect(() => {
@@ -115,8 +125,37 @@ export function ChatScreen({navigation, route}: Props) {
     }
   }, [pharaohName]);
 
+  // ── Resume existing conversation ────────────────────────────
+  useEffect(() => {
+    if (resumeConvId) {
+      setLoading(true);
+      setError(null);
+      fetchConversation(resumeConvId)
+        .then(data => {
+          const restored: ChatMessage[] = data.messages.map(m => ({
+            id: nextMsgId(),
+            role: m.role,
+            text: m.content,
+            audioBase64: m.audio_base64,
+          }));
+          setMessages(restored);
+          scrollToBottom();
+        })
+        .catch(err => {
+          console.error('[Chat] Resume conversation failed:', err);
+          const msg = err instanceof Error ? err.message : 'Could not load conversation';
+          setError(msg);
+        })
+        .finally(() => setLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Process the incoming query on mount ─────────────────────
   const processQuery = useCallback(async () => {
+    // Skip initial query when resuming a conversation
+    if (resumeConvId) { return; }
+
     setLoading(true);
     setError(null);
 
@@ -124,25 +163,14 @@ export function ChatScreen({navigation, route}: Props) {
       // Voice input path: send audio file to /voice-query
       if (voiceMode && audioFilePath) {
         console.log('[Chat] Voice query path — audioFilePath:', audioFilePath);
-        setMessages([{role: 'user', text: '🎤 Voice message', voiceFilePath: audioFilePath}]);
+        setMessages([{id: nextMsgId(), role: 'user', text: '🎤 Voice message', voiceFilePath: audioFilePath}]);
 
-        const result = await sendVoiceQuery(audioFilePath, {gender: currentGender});
-        console.log('[Chat] Voice query response:', {
-          transcript: result.transcript,
-          answerLength: result.answer?.length,
-          hasAudio: !!result.audio_base64,
-          audioBase64Length: result.audio_base64?.length,
-          tts_provider: result.tts_provider,
-          tts_model: result.tts_model,
-        });
+        const result = await sendVoiceQuery(audioFilePath, {gender: currentGender, conversationId: conversationIdRef.current});
+        captureConversationId(result.conversation_id);
 
         setMessages([
-          {role: 'user', text: result.transcript || '🎤 Voice message', voiceFilePath: audioFilePath},
-          {
-            role: 'assistant',
-            text: result.answer,
-            audioBase64: result.audio_base64,
-          },
+          {id: nextMsgId(), role: 'user', text: result.transcript || '🎤 Voice message', voiceFilePath: audioFilePath},
+          {id: nextMsgId(), role: 'assistant', text: result.answer, audioBase64: result.audio_base64},
         ]);
         scrollToBottom();
         return;
@@ -151,24 +179,17 @@ export function ChatScreen({navigation, route}: Props) {
       // Image + text path: describe image first, then query
       if (imageUri) {
         const queryText = initialQuery || 'Describe this image';
-        setMessages([{role: 'user', text: queryText, imageUri}]);
+        setMessages([{id: nextMsgId(), role: 'user', text: queryText, imageUri}]);
 
         const descResult = await describeImages([imageUri]);
         const descriptions = descResult.descriptions;
-        console.log('[Chat] Image descriptions:', descriptions);
 
-        const result = await sendTextQuery(queryText, descriptions, currentGender);
-        console.log('[Chat] Image+text query response:', {
-          answerLength: result.answer?.length,
-          hasAudio: !!result.audio_base64,
-          audioBase64Length: result.audio_base64?.length,
-          tts_provider: result.tts_provider,
-          tts_model: result.tts_model,
-        });
+        const result = await sendTextQuery(queryText, descriptions, currentGender, conversationIdRef.current);
+        captureConversationId(result.conversation_id);
 
         setMessages(prev => [
           ...prev,
-          {role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined},
+          {id: nextMsgId(), role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined},
         ]);
         scrollToBottom();
         return;
@@ -179,23 +200,14 @@ export function ChatScreen({navigation, route}: Props) {
         initialQuery || (pharaohName ? `Tell me about ${pharaohName}` : '');
       if (!queryText) {return;}
 
-      console.log('[Chat] Text-only query:', queryText, '| gender:', currentGender);
-      setMessages([{role: 'user', text: queryText}]);
+      setMessages([{id: nextMsgId(), role: 'user', text: queryText}]);
 
-      const result = await sendTextQuery(queryText, undefined, currentGender);
-      console.log('[Chat] Text query response:', {
-        answer: result.answer?.substring(0, 100) + '...',
-        hasAudio: !!result.audio_base64,
-        audioBase64Length: result.audio_base64?.length,
-        tts_provider: result.tts_provider,
-        tts_model: result.tts_model,
-        search_query: result.search_query,
-        top_k: result.top_k,
-      });
+      const result = await sendTextQuery(queryText, undefined, currentGender, conversationIdRef.current);
+      captureConversationId(result.conversation_id);
 
       setMessages(prev => [
         ...prev,
-        {role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined},
+        {id: nextMsgId(), role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined},
       ]);
       scrollToBottom();
     } catch (err: unknown) {
@@ -205,7 +217,7 @@ export function ChatScreen({navigation, route}: Props) {
     } finally {
       setLoading(false);
     }
-  }, [voiceMode, audioFilePath, imageUri, initialQuery, pharaohName, currentGender]);
+  }, [voiceMode, audioFilePath, imageUri, initialQuery, pharaohName, currentGender, resumeConvId, captureConversationId]);
 
   useEffect(() => {
     processQuery();
@@ -222,8 +234,7 @@ export function ChatScreen({navigation, route}: Props) {
 
     setInputText('');
     setPickedImage(null);
-    console.log('[Chat] Sending message with image URI:', userImageUri);
-    setMessages(prev => [...prev, {role: 'user', text: userText, imageUri: userImageUri}]);
+    setMessages(prev => [...prev, {id: nextMsgId(), role: 'user', text: userText, imageUri: userImageUri}]);
     setIsSending(true);
     scrollToBottom();
 
@@ -234,25 +245,19 @@ export function ChatScreen({navigation, route}: Props) {
         descriptions = descResult.descriptions;
       }
 
-      console.log('[Chat] Follow-up send — text:', userText, '| hasImage:', !!userImageUri);
-      const result = await sendTextQuery(userText, descriptions, currentGender);
-      console.log('[Chat] Follow-up response:', {
-        answerLength: result.answer?.length,
-        hasAudio: !!result.audio_base64,
-        audioBase64Length: result.audio_base64?.length,
-        tts_provider: result.tts_provider,
-        tts_model: result.tts_model,
-      });
-      setMessages(prev => [...prev, {role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined}]);
+      const result = await sendTextQuery(userText, descriptions, currentGender, conversationIdRef.current);
+      captureConversationId(result.conversation_id);
+
+      setMessages(prev => [...prev, {id: nextMsgId(), role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined}]);
       scrollToBottom();
     } catch (err: unknown) {
       console.error('[Chat] Follow-up send error:', err);
       const msg = err instanceof Error ? err.message : 'Something went wrong';
-      setMessages(prev => [...prev, {role: 'assistant', text: `Error: ${msg}`}]);
+      setMessages(prev => [...prev, {id: nextMsgId(), role: 'assistant', text: `Error: ${msg}`}]);
     } finally {
       setIsSending(false);
     }
-  }, [inputText, pickedImage, currentGender]);
+  }, [inputText, pickedImage, currentGender, captureConversationId]);
 
   // ── Voice recording ────────────────────────────────────────
   const handleMicPress = useCallback(async () => {
@@ -261,8 +266,10 @@ export function ChatScreen({navigation, route}: Props) {
         setIsSending(true);
         const result = await stopRecording();
         setIsRecording(false);
+        const userMsgId = nextMsgId();
 
         setMessages(prev => [...prev, {
+          id: userMsgId,
           role: 'user',
           text: '🎤 Voice message',
           voiceFilePath: result.filePath,
@@ -270,19 +277,14 @@ export function ChatScreen({navigation, route}: Props) {
         }]);
         scrollToBottom();
 
-        const voiceResult = await sendVoiceQuery(result.filePath, {gender: currentGender});
-        console.log('[Chat] Voice recording response:', {
-          transcript: voiceResult.transcript,
-          answerLength: voiceResult.answer?.length,
-          hasAudio: !!voiceResult.audio_base64,
-          audioBase64Length: voiceResult.audio_base64?.length,
-          tts_provider: voiceResult.tts_provider,
-          tts_model: voiceResult.tts_model,
-        });
+        const voiceResult = await sendVoiceQuery(result.filePath, {gender: currentGender, conversationId: conversationIdRef.current});
+        captureConversationId(voiceResult.conversation_id);
+
         setMessages(prev => {
           const updated = [...prev];
           const lastMsg = updated[updated.length - 1];
           updated[updated.length - 1] = {
+            id: lastMsg.id,
             role: 'user',
             text: voiceResult.transcript || '🎤 Voice message',
             voiceFilePath: lastMsg.voiceFilePath,
@@ -290,7 +292,7 @@ export function ChatScreen({navigation, route}: Props) {
           };
           return [
             ...updated,
-            {role: 'assistant', text: voiceResult.answer, audioBase64: voiceResult.audio_base64},
+            {id: nextMsgId(), role: 'assistant', text: voiceResult.answer, audioBase64: voiceResult.audio_base64},
           ];
         });
         scrollToBottom();
@@ -309,7 +311,7 @@ export function ChatScreen({navigation, route}: Props) {
         Alert.alert('Microphone Error', msg);
       }
     }
-  }, [isRecording, currentGender]);
+  }, [isRecording, currentGender, captureConversationId]);
 
   // ── Image picking ──────────────────────────────────────────
   const handleTakePhoto = useCallback(async () => {
@@ -334,7 +336,6 @@ export function ChatScreen({navigation, route}: Props) {
 
   const handleVoiceBubblePlayChange = useCallback((msgIndex: number, playing: boolean) => {
     if (playing) {
-      // Stop any other playing message first
       if (playingIndex !== null && playingIndex !== msgIndex) {
         stopAudio();
       }
@@ -345,6 +346,35 @@ export function ChatScreen({navigation, route}: Props) {
       }
     }
   }, [playingIndex]);
+
+  // ── TTS play button handler ─────────────────────────────────
+  const handlePlayTTS = useCallback(async (messageId: string) => {
+    // Mark message as loading TTS
+    setMessages(prev => prev.map(m =>
+      m.id === messageId ? {...m, isLoadingTTS: true} : m,
+    ));
+
+    try {
+      const msg = messages.find(m => m.id === messageId);
+      if (!msg) { return; }
+
+      const ttsResult = await sendTTS(msg.text, conversationIdRef.current, currentGender);
+
+      // Attach audio to the message
+      setMessages(prev => prev.map(m =>
+        m.id === messageId
+          ? {...m, audioBase64: ttsResult.audio_base64, isLoadingTTS: false}
+          : m,
+      ));
+    } catch (err: unknown) {
+      console.error('[Chat] TTS error:', err);
+      setMessages(prev => prev.map(m =>
+        m.id === messageId ? {...m, isLoadingTTS: false} : m,
+      ));
+      const errMsg = err instanceof Error ? err.message : 'TTS failed';
+      Alert.alert('Audio Error', errMsg);
+    }
+  }, [messages, currentGender]);
 
   return (
     <View style={styles.container}>
@@ -391,53 +421,25 @@ export function ChatScreen({navigation, route}: Props) {
             )}
 
             {messages.map((msg, idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.messageBubble,
-                msg.role === 'user'
-                  ? styles.userBubble
-                  : styles.assistantBubble,
-              ]}>
-              {msg.imageUri && (
-                <Image
-                  source={{uri: msg.imageUri}}
-                  style={styles.messageImage}
-                  resizeMode="cover"
-                  onError={(e) => console.warn('[Chat] Image load error:', e.nativeEvent.error, 'URI:', msg.imageUri)}
-                />
-              )}
-              <Text
-                style={[
-                  styles.messageText,
-                  msg.role === 'user'
-                    ? styles.userText
-                    : styles.assistantText,
-                ]}>
-                {msg.text}
-              </Text>
-              {(msg.voiceFilePath || msg.audioBase64) && (
-                <VoiceMessageBubble
-                  voiceFilePath={msg.voiceFilePath}
-                  audioBase64={msg.audioBase64}
-                  durationHintMs={msg.voiceDurationMs}
-                  isGloballyPlaying={playingIndex === idx}
-                  onPlayStateChange={(playing) => handleVoiceBubblePlayChange(idx, playing)}
-                  role={msg.role}
-                />
-              )}
-            </View>
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                index={idx}
+                isGloballyPlaying={playingIndex === idx}
+                onPlayStateChange={handleVoiceBubblePlayChange}
+                onPlayTTS={handlePlayTTS}
+              />
           ))}
 
           {(loading || isSending) && (
-            <View style={[styles.messageBubble, styles.assistantBubble]}>
+            <View style={styles.loadingBubble}>
               <ActivityIndicator size="small" color={Colors.primary} />
               <Text style={styles.loadingText}>Consulting the archives...</Text>
             </View>
           )}
 
           {error && (
-            <View style={[styles.messageBubble, styles.errorBubble]}>
+            <View style={styles.errorBubble}>
               <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity
                 onPress={processQuery}
@@ -665,44 +667,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  messageBubble: {
+
+  // ── Loading & Error ───────────────────────────────────────
+  loadingBubble: {
+    alignSelf: 'flex-start',
     maxWidth: '85%',
     padding: Spacing.lg,
     borderRadius: BorderRadius.xl,
-    marginBottom: Spacing.sm,
-    overflow: 'hidden',
-  },
-  userBubble: {
-    alignSelf: 'flex-end',
-    backgroundColor: Colors.primary,
-    borderBottomRightRadius: BorderRadius.sm,
-  },
-  assistantBubble: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.cardDark,
     borderBottomLeftRadius: BorderRadius.sm,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.cardDark,
     borderWidth: 1,
     borderColor: Colors.textWhite10,
   },
-  messageText: {
-    fontSize: FontSizes.base,
-    lineHeight: 24,
-  },
-  userText: {
-    color: Colors.backgroundDark,
-    fontWeight: '500',
-  },
-  assistantText: {
-    color: Colors.textWhite90,
-  },
-  messageImage: {
-    width: SCREEN_WIDTH * 0.85 - Spacing.lg * 2,
-    height: 180,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.sm,
-  },
-
-  // ── Loading & Error ───────────────────────────────────────
   loadingText: {
     color: Colors.textWhite50,
     fontSize: FontSizes.sm,
@@ -710,6 +687,10 @@ const styles = StyleSheet.create({
   },
   errorBubble: {
     alignSelf: 'center',
+    maxWidth: '85%',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.xl,
+    marginBottom: Spacing.sm,
     backgroundColor: 'rgba(192, 57, 43, 0.15)',
     borderColor: 'rgba(192, 57, 43, 0.3)',
     borderWidth: 1,
