@@ -32,14 +32,16 @@ async def voice_query_rag(
     gender: Optional[str] = Form(None, description="Voice gender: female/male"),
     tts_model: Optional[str] = Form(None, description="TTS model override"),
     stt_model: Optional[str] = Form(None, description="STT model override"),
+    conversation_id: Optional[str] = Form(None, description="Conversation ID to continue a session"),
     services: ServiceContainer = Depends(get_services),
 ) -> VoiceQueryResponse:
     """
-    Voice query flow:
+    Voice query flow with optional conversation memory:
     1) Transcribe audio with Deepgram STT
-    2) Retrieve context from Pinecone
-    3) Generate answer with Gemini LLM
-    4) Synthesize speech with TTS provider
+    2) Load conversation history (if conversation_id provided)
+    3) Retrieve context from Pinecone
+    4) Generate answer with Gemini LLM (with history)
+    5) Synthesize speech with TTS provider
     """
     if services.stt_service is None or services.tts_service is None:
         raise HTTPException(status_code=500, detail="STT/TTS services not initialized")
@@ -63,7 +65,20 @@ async def voice_query_rag(
 
     logger.info("Transcript: %s", transcript[:120])
 
-    # 2) Retrieve documents
+    # 2) Conversation memory
+    history = []
+    if services.conversation_service:
+        if conversation_id:
+            history = await services.conversation_service.get_history(conversation_id, limit=10)
+            if not history:
+                logger.warning(f"Conversation {conversation_id} not found, creating new one")
+                conversation_id = await services.conversation_service.create_conversation()
+        else:
+            conversation_id = await services.conversation_service.create_conversation()
+
+        await services.conversation_service.add_message(conversation_id, "user", transcript)
+
+    # 3) Retrieve documents
     try:
         k = settings.top_k
         results = services.vector_store_service.similarity_search(transcript, k=k)
@@ -75,16 +90,24 @@ async def voice_query_rag(
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"Vector search failed: {e}")
 
-    # 3) Build context and generate answer
+    # 4) Build context and generate answer (with history)
     context = build_context_from_documents(results)
     try:
-        answer = services.llm_service.generate_with_context(query=transcript, context=context)
+        answer = services.llm_service.generate_with_context(
+            query=transcript,
+            context=context,
+            history=history,
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"LLM generation failed: {e}")
+
+    # Store assistant response
+    if services.conversation_service and conversation_id:
+        await services.conversation_service.add_message(conversation_id, "assistant", answer)
     
     answer_reformatted = answer.replace("*", "").strip()
 
-    # 4) TTS
+    # 5) TTS
     try:
         audio_out = services.tts_service.synthesize(
             text=answer_reformatted,
@@ -111,4 +134,6 @@ async def voice_query_rag(
         tts_model=model_used,
         search_query=transcript,
         top_k=k,
+        conversation_id=conversation_id,
     )
+

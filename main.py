@@ -28,6 +28,7 @@ from app.services import (
     AuthService,
     PlacesService,
     UberService,
+    ConversationService,
 )
 from app.routers import (
     query_router,
@@ -35,6 +36,7 @@ from app.routers import (
     audio_router,
     auth_router,
     pharaohs_router,
+    conversations_router,
     ServiceContainer,
     set_service_container,
 )
@@ -104,8 +106,14 @@ async def lifespan(app: FastAPI):
         logger.info("Google Places service initialized")
 
         # 11. Uber Service
+        logger.info("11. Initializing UberService ...")
         uber_service = UberService(settings)
         logger.info("Uber service initialized")
+
+        # 12. Conversation Service
+        logger.info("12. Initializing ConversationService ...")
+        conversation_service = ConversationService(settings, database_service)
+        logger.info("Conversation service initialized")
         
         # Create service container and inject into routers
         container = ServiceContainer(
@@ -120,6 +128,7 @@ async def lifespan(app: FastAPI):
             auth_service=auth_service,
             places_service=places_service,
             uber_service=uber_service,
+            conversation_service=conversation_service,
         )
         set_service_container(container)
         
@@ -165,6 +174,7 @@ app.include_router(query_router, tags=["Query"])
 app.include_router(audio_router, tags=["Audio"])
 app.include_router(auth_router, tags=["Auth"])
 app.include_router(pharaohs_router, tags=["Pharaohs"])
+app.include_router(conversations_router, tags=["Conversations"])
 
 
 # ── Application Entry Point ─────────────────────────────────────────────────

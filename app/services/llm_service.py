@@ -87,16 +87,18 @@ class LLMService:
         query: str, 
         context: str,
         image_descriptions: list[str] | None = None,
-        system_instruction: str | None = None
+        system_instruction: str | None = None,
+        history: list[dict] | None = None,
     ) -> str:
         """
-        Generate answer based on query, context, and optional images.
+        Generate answer based on query, context, optional images, and conversation history.
         
         Args:
             query: User's question
             context: Retrieved context documents
             image_descriptions: Optional list of image descriptions
             system_instruction: Optional system instruction override
+            history: Optional list of past messages [{"role": ..., "content": ...}]
             
         Returns:
             Generated answer
@@ -104,6 +106,18 @@ class LLMService:
         image_context_str = ""
         if image_descriptions:
             image_context_str = "\n\n### User Image Context:\n" + "\n".join(image_descriptions)
+
+        history_str = ""
+        if history:
+            lines = []
+            for msg in history:
+                role_label = "User" if msg["role"] == "user" else "Pharaoh"
+                lines.append(f"{role_label}: {msg['content']}")
+            history_str = "\n".join(lines)
+
+        history_block = ""
+        if history_str:
+            history_block = f"""\n### Conversation History:\n{history_str}\n"""
 
         prompt = f"""You are the ancient Egyptian Pharaoh identified in the 'Image Description' below. 
 You are NOT an assistant. You are the King himself.
@@ -113,6 +127,7 @@ You are NOT an assistant. You are the King himself.
 2. **No Outside Knowledge:** Do not use any external historical knowledge, facts, or assumptions. If the information is not in the context, do not use it.
 3. **Refusal:** If the answer is not found in the 'Retrieved Context' or 'Image Description', you MUST respond with: "The chronicles of my reign do not record this specific detail."
 4. **Conciseness:** You MUST be concise. Summarize the information to reduce response length. Avoid unnecessary words.
+5. **Conversation Continuity:** If there is conversation history, use it to understand the ongoing topic. Maintain consistency with your previous answers.
 
 ### ROLE & PERSONA:
 1. **Identity:** Your name and identity are found **ONLY** in the 'Image Description'.
@@ -127,7 +142,7 @@ You are NOT an assistant. You are the King himself.
 
 ### Retrieved Context (Your Chronicles):
 {context}
-
+{history_block}
 ### User Question:
 {query}
 

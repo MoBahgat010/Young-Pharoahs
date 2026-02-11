@@ -24,6 +24,7 @@ from app.services import (
     RerankerService,
     PlacesService,
     UberService,
+    ConversationService,
 )
 from app.utils.image import upload_files_to_pil_images, validate_image_count
 from app.utils.prompt import (
@@ -54,6 +55,7 @@ class ServiceContainer:
         auth_service: Optional["AuthService"] = None,
         places_service: Optional[PlacesService] = None,
         uber_service: Optional[UberService] = None,
+        conversation_service: Optional[ConversationService] = None,
     ):
         self.embedding_service = embedding_service
         self.vision_service = vision_service
@@ -66,6 +68,7 @@ class ServiceContainer:
         self.auth_service = auth_service
         self.places_service = places_service
         self.uber_service = uber_service
+        self.conversation_service = conversation_service
 
 
 # Global service container (set by main app during startup)
@@ -149,22 +152,14 @@ async def query_rag(
 ) -> QueryResponse:
     """
     Query the RAG system with text and optional image descriptions.
-    
-    Args:
-        request: Query parameters including prompt and image descriptions
-        services: Injected service container
-        
-    Returns:
-        QueryResponse with answer and sources
-        
-    Raises:
-        HTTPException: For various errors during processing
+    Supports multi-turn conversations via conversation_id.
     """
     prompt = request.prompt
     image_descriptions = request.image_descriptions
     gender = request.gender
     tts_provider = request.tts_provider
     tts_model = request.tts_model
+    conversation_id = request.conversation_id
 
     logger.info("gender: ", gender)
     logger.info("tts_provider: ", tts_provider)
@@ -177,6 +172,22 @@ async def query_rag(
     
     prompt = prompt.strip()
     valid_descriptions: List[str] = image_descriptions or []
+    
+    # ── Conversation Memory ─────────────────────────────────────────────────
+    history = []
+    if services.conversation_service:
+        if conversation_id:
+            # Continue existing conversation
+            history = await services.conversation_service.get_history(conversation_id, limit=10)
+            if not history:
+                logger.warning(f"Conversation {conversation_id} not found, creating new one")
+                conversation_id = await services.conversation_service.create_conversation()
+        else:
+            # Start new conversation
+            conversation_id = await services.conversation_service.create_conversation()
+        
+        # Store user message
+        await services.conversation_service.add_message(conversation_id, "user", prompt)
     
     # Enrich query with image context
     search_query = enrich_query_with_images(prompt, valid_descriptions)
@@ -193,7 +204,6 @@ async def query_rag(
         logger.info(f"Retrieved {len(results)} initial documents")
         
         # Rerank results
-        # We want to return 8 documents after reranking
         rerank_top_k = 8
         results = services.reranker_service.rerank(search_query, results, top_k=rerank_top_k)
         logger.info(f"Reranked to top {len(results)} documents")
@@ -211,14 +221,15 @@ async def query_rag(
     # Build context from results
     context = build_context_from_documents(results)
     
-    # Generate answer using LLM
+    # Generate answer using LLM (with conversation history)
     logger.info(f"{'context'}: {context}")
     logger.info(f"{'prompt'}: {prompt}")
     try:
         answer = services.llm_service.generate_with_context(
             query=prompt,
             context=context,
-            image_descriptions=valid_descriptions
+            image_descriptions=valid_descriptions,
+            history=history,
         )
         logger.info("Generated answer successfully")
     except RuntimeError as e:
@@ -228,6 +239,10 @@ async def query_rag(
         logger.error(f"Unexpected error during generation: {e}")
         raise HTTPException(status_code=500, detail=f"Generation error: {e}")
 
+    # Store assistant response in conversation
+    if services.conversation_service and conversation_id:
+        await services.conversation_service.add_message(conversation_id, "assistant", answer)
+
     logger.info(f"Answer: {answer}")
     
     response = QueryResponse(
@@ -235,6 +250,7 @@ async def query_rag(
         image_descriptions=valid_descriptions,
         search_query=search_query,
         top_k=k,
+        conversation_id=conversation_id,
         audio_base64=None,
         tts_provider=None,
         tts_model=None,
