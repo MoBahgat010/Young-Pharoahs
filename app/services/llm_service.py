@@ -137,7 +137,44 @@ Rules:
             logger.warning(f"Query rewriting failed, using original: {e}")
             return query
 
-    
+    def detect_gender(self, history: list[dict]) -> str:
+        """
+        Detect the gender of the pharaoh currently being discussed in the conversation.
+        
+        Args:
+            history: Conversation messages [{"role": ..., "content": ...}].
+            
+        Returns:
+            "male" or "female".
+        """
+        if not history:
+            return "female"
+
+        # Use last 4 messages for context
+        recent = history[-4:]
+        lines = []
+        for msg in recent:
+            role = "User" if msg["role"] == "user" else "Pharaoh"
+            lines.append(f"{role}: {msg['content']}")
+        context = "\n".join(lines)
+
+        prompt = f"""Based on this conversation, determine the gender of the Pharaoh currently speaking.
+
+{context}
+
+Reply with ONLY one word: "male" or "female". Nothing else."""
+
+        try:
+            result = self.generate(prompt).strip().lower()
+            if "male" in result and "female" not in result:
+                return "male"
+            elif "female" in result:
+                return "female"
+            return "male"  # default for most pharaohs
+        except Exception as e:
+            logger.warning(f"Gender detection failed: {e}")
+            return "female"
+
     def generate_with_context(
         self, 
         query: str, 
@@ -175,25 +212,29 @@ Rules:
         if history_str:
             history_block = f"""\n### Conversation History:\n{history_str}\n"""
 
-        prompt = f"""You are the ancient Egyptian Pharaoh identified in the 'Image Description' below. 
-You are NOT an assistant. You are the King himself.
+        prompt = f"""You are an ancient Egyptian Pharaoh speaking to a visitor.
+You are NOT an assistant. You are the King or Queen themselves.
+
+### IDENTITY RULES:
+1. **If an 'Image Description' is provided below**, adopt the identity of the Pharaoh described in it.
+2. **If no 'Image Description' is provided**, determine your identity from the 'User Question' and 'Retrieved Context'. Speak as whichever Pharaoh the user is currently asking about.
+3. **Switching Pharaohs:** If the user was previously asking about one Pharaoh and now asks about a different one, you MUST switch your persona immediately. Speak as the NEW Pharaoh. Do NOT continue as the previous one.
+4. **Conversation History:** The history may contain previous exchanges where you spoke as a different Pharaoh. That is expected. Always speak as the Pharaoh relevant to the CURRENT question.
 
 ### STRICT GUARDRAILS:
 1. **Context-Driven Only:** You must answer the user's question using **ONLY** the information provided in the 'Retrieved Context' and 'Image Description'.
 2. **No Outside Knowledge:** Do not use any external historical knowledge, facts, or assumptions. If the information is not in the context, do not use it.
-3. **Refusal:** If the answer is not found in the 'Retrieved Context' or 'Image Description', you MUST respond with: "The chronicles of my reign do not record this specific detail."
+3. **Refusal:** If the answer is not found in the 'Retrieved Context' or 'Image Description', you MUST respond with: "The chronicles do not record this specific detail."
 4. **Conciseness:** You MUST be concise. Summarize the information to reduce response length. Avoid unnecessary words.
-5. **Conversation Continuity:** If there is conversation history, use it to understand the ongoing topic. Maintain consistency with your previous answers.
 
 ### ROLE & PERSONA:
-1. **Identity:** Your name and identity are found **ONLY** in the 'Image Description'.
-2. **First Person:** You must convert all information from the 'Retrieved Context' into the first person ("I", "My").
-3. **Tone:** Speak with dignity and authority.
+1. **First Person:** You must convert all information from the 'Retrieved Context' into the first person ("I", "My").
+2. **Tone:** Speak with dignity and authority.
 
 ### LANGUAGE:
-- Answer **strictly** in the same language as the 'User Question' and the answer has to be in the same language as the 'User Question'.
+- Answer **strictly** in the same language as the 'User Question'.
 
-### Image Description (Your Identity):
+### Image Description (Identity Hint):
 {image_context_str}
 
 ### Retrieved Context (Your Chronicles):

@@ -267,26 +267,33 @@ async def query_rag(
     "/tts",
     response_model=QueryResponse,
     summary="Synthesize text to speech",
-    description="Convert text to speech using Deepgram.",
+    description="Convert text to speech. If conversation_id is provided and gender is omitted, the pharaoh's gender is auto-detected from conversation history.",
     dependencies=[]
 )
 async def synthesize_speech(
     text: str = Form(..., description="Text to synthesize"),
-    gender: Optional[str] = Form(None, description="Voice gender for TTS (female/male)"),
+    gender: Optional[str] = Form(None, description="Voice gender for TTS (female/male). Auto-detected if omitted with conversation_id."),
     tts_model: Optional[str] = Form(None, description="TTS model override"),
+    conversation_id: Optional[str] = Form(None, description="Conversation ID for auto gender detection"),
     services: ServiceContainer = Depends(get_services),
 ) -> QueryResponse:
     """
-    Convert text to speech using Deepgram.
-    Returns the result in QueryResponse structure.
+    Convert text to speech.
+    If conversation_id is provided and gender is not, auto-detect the pharaoh's gender.
     """
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
-        
-    provider_used = "deepgram"
+    
+    # Auto-detect gender from conversation history
+    if not gender and conversation_id and services.conversation_service:
+        history = await services.conversation_service.get_history(conversation_id, limit=10)
+        if history:
+            gender = services.llm_service.detect_gender(history)
+            logger.info(f"Auto-detected gender: {gender}")
+
     provider_used = "deepgram"
     
-    # Handle model selection strictly based on gender if model not explicitly provided
+    # Handle model selection based on gender
     if tts_model:
         model_used = tts_model
     elif gender and gender.lower() == "male":
@@ -294,7 +301,7 @@ async def synthesize_speech(
     else:
         model_used = settings.deepgram_tts_model
     
-    # Preprocess text if needed (e.g. remove asterisks)
+    # Preprocess text
     text_clean = text.replace("*", "").strip()
     
     try:
@@ -314,6 +321,7 @@ async def synthesize_speech(
         answer=text,
         search_query=text,
         top_k=0,
+        conversation_id=conversation_id,
         audio_base64=audio_base64,
         tts_provider=provider_used,
         tts_model=model_used
