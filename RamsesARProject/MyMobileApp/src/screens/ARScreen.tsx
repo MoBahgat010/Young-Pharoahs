@@ -123,8 +123,8 @@ const ARScreen = () => {
 
         <TouchableOpacity 
           style={[styles.button, styles.buttonFemale]} 
-          onPress={() => openUnity('statue_of_ramesses_iii')}>
-          <Text style={styles.buttonText}>Ramses III Statue</Text>
+          onPress={() => openUnity('cat_pharaoh__king')}>
+          <Text style={styles.buttonText}>Ramesses</Text>
         </TouchableOpacity>
       </View>
     </View>

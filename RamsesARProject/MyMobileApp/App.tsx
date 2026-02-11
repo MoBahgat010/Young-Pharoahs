@@ -9,6 +9,8 @@ import {KingsScreen} from './src/screens/KingsScreen';
 import {LocationsScreen} from './src/screens/LocationsScreen';
 import ARScreen from './src/screens/ARScreen';
 import {ChatScreen} from './src/screens/ChatScreen';
+import {MonumentDetailsScreen} from './src/screens/MonumentDetailsScreen';
+import type {Monument} from './src/services/apiService';
 
 export type RootStackParamList = {
   MainTabs: undefined;
@@ -19,6 +21,10 @@ export type RootStackParamList = {
     voiceMode?: boolean;
     imageUri?: string;
     audioFilePath?: string;
+  };
+  MonumentDetails: {
+    kingName: string;
+    monument: Monument;
   };
 };
 
@@ -130,6 +136,7 @@ export default function App() {
         }}>
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="MonumentDetails" component={MonumentDetailsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

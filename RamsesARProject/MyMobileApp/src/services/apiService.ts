@@ -58,6 +58,28 @@ export interface PharaohSearchResponse {
   results: PharaohSearchResult[];
 }
 
+// ── Nearby Places Types ────────────────────────────────────────
+
+export interface NearbyPlace {
+  name: string;
+  address: string;
+  rating: number | null;
+  total_ratings: number | null;
+  location: {lat: number; lng: number};
+  open_now: boolean | null;
+  place_id: string;
+  types: string[];
+}
+
+export interface MonumentNearbyResponse {
+  king_name: string;
+  monument: string;
+  location: {lat: number; lng: number};
+  uber_link: string;
+  restaurants: NearbyPlace[];
+  hotels: NearbyPlace[];
+}
+
 // ── Text Query ─────────────────────────────────────────────────
 
 export async function sendTextQuery(
@@ -176,6 +198,24 @@ export async function searchPharaohsMonuments(
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Pharaoh search failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
+}
+
+// ── Monument Nearby Places ─────────────────────────────────────
+
+export async function fetchMonumentNearby(
+  kingName: string,
+  monumentName: string,
+): Promise<MonumentNearbyResponse> {
+  const res = await fetch(
+    `${BASE_URL}/pharaohs/${encodeURIComponent(kingName)}/monuments/${encodeURIComponent(monumentName)}/nearby`,
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Monument nearby failed (${res.status}): ${err}`);
   }
 
   return res.json();

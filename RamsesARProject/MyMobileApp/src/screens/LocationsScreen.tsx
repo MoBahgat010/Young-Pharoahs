@@ -12,11 +12,14 @@ import {
   Linking,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {MapPin, Navigation} from 'lucide-react-native';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
 import {searchPharaohsMonuments} from '../services/apiService';
 import type {Monument} from '../services/apiService';
 import {PHARAOHS} from '../data/pharaohs';
+import type {RootStackParamList} from '../../App';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
@@ -27,6 +30,7 @@ interface FlatMonument {
 }
 
 export function LocationsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [items, setItems] = useState<FlatMonument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,7 +172,11 @@ export function LocationsScreen() {
             {filtered.map((item, idx) => {
               const m = item.monument;
               return (
-                <View key={`${item.king_name}-${m.name}-${idx}`} style={styles.card}>
+                <TouchableOpacity
+                  key={`${item.king_name}-${m.name}-${idx}`}
+                  style={styles.card}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('MonumentDetails', {kingName: item.king_name, monument: m})}>
                   {/* Monument image */}
                   {m.image_url ? (
                     <Image
@@ -231,7 +239,7 @@ export function LocationsScreen() {
                       ) : null}
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
 

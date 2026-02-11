@@ -16,8 +16,10 @@ public class CharacterPlacer : MonoBehaviour
     [SerializeField] private GameObject characterPrefab;
     
     [Header("Settings")]
-    [SerializeField] private float characterScale = 1f;
+    [SerializeField] private float characterScale = 1.25f;
     [SerializeField] private float fallbackDistance = 2f; // meters in front of camera
+    [Tooltip("Model correction rotation. X=-90 stands up Z-up models. Y adjusts facing direction (try 0, 90, 180, -90 if model faces wrong way). Z=roll.")]
+    [SerializeField] private Vector3 prefabRotationOffset = new Vector3(-90f, 0f, 0f);
     
     private List<ARRaycastHit> hits = new List<ARRaycastHit>();
     private GameObject placedCharacter;
@@ -189,17 +191,31 @@ public class CharacterPlacer : MonoBehaviour
             return;
         }
         
-        placedCharacter = Instantiate(characterPrefab, placementPose.position, placementPose.rotation);
+        placedCharacter = Instantiate(characterPrefab, placementPose.position, Quaternion.identity);
         placedCharacter.transform.localScale = Vector3.one * characterScale;
-        Debug.Log($"CharacterPlacer: Character instantiated! Scale={characterScale}, Pos={placedCharacter.transform.position}");
         
-        // Face the camera
+        // Model correction: stands the model upright and adjusts its facing direction
+        // This is applied in the model's LOCAL space before the face-camera rotation
+        Quaternion modelCorrection = Quaternion.Euler(prefabRotationOffset);
+        
+        // Face-camera rotation: makes the model face toward the camera
+        Quaternion faceCamera = Quaternion.identity;
         if (Camera.main != null)
         {
-            Vector3 lookAtPos = Camera.main.transform.position;
-            lookAtPos.y = placedCharacter.transform.position.y;
-            placedCharacter.transform.LookAt(lookAtPos);
+            Vector3 dirToCamera = Camera.main.transform.position - placedCharacter.transform.position;
+            dirToCamera.y = 0; // Only horizontal direction
+            if (dirToCamera.sqrMagnitude > 0.001f)
+            {
+                faceCamera = Quaternion.LookRotation(dirToCamera.normalized, Vector3.up);
+            }
         }
+        
+        // Combined: face camera first (world), then apply model correction (local)
+        // If model faces wrong direction, adjust prefabRotationOffset.Y in inspector
+        // (try 0, 90, 180, or -90)
+        placedCharacter.transform.rotation = faceCamera * modelCorrection;
+        
+        Debug.Log($"CharacterPlacer: Character instantiated! Scale={characterScale}, Pos={placedCharacter.transform.position}, Rot={placedCharacter.transform.rotation.eulerAngles}, RotOffset={prefabRotationOffset}");
         
         SetPlanesVisible(false);
         SendMessageToReactNative("character_placed");

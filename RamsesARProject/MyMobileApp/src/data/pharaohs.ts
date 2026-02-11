@@ -43,14 +43,14 @@ export const PHARAOHS: Pharaoh[] = [
     name: 'Hatshepsut',
     gender: 'female',
     imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Seated_Statue_of_Hatshepsut_MET_Hatshepsut2012.jpg/500px-Seated_Statue_of_Hatshepsut_MET_Hatshepsut2012.jpg',
+      'https://upload.wikimedia.org/wikipedia/commons/7/7b/Seated_Statue_of_Hatshepsut_MET_Hatshepsut2012.jpg',
   },
   {
     id: 'seti-i',
     name: 'Seti I',
     gender: 'male',
     imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/SetiI-KneelingStatueOfferingToOsiris-CloseUp_MetropolitanMuseum.png/500px-SetiI-KneelingStatueOfferingToOsiris-CloseUp_MetropolitanMuseum.png',
+      'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSClPIFxmsoy_4UNu2nEipi0fKjcRqyySaJqw&s',
   },
   {
     id: 'thutmose-iii',

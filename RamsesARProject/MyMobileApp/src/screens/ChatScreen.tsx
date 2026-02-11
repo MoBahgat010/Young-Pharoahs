@@ -469,7 +469,11 @@ export function ChatScreen({navigation, route}: Props) {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.monumentsScroll}>
                 {monuments.map((m, i) => (
-                  <View key={`monument-${i}`} style={styles.monumentCard}>
+                  <TouchableOpacity
+                    key={`monument-${i}`}
+                    style={styles.monumentCard}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate('MonumentDetails', {kingName: pharaohName || '', monument: m})}>
                     {m.image_url ? (
                       <Image
                         source={{uri: m.image_url}}
@@ -490,7 +494,7 @@ export function ChatScreen({navigation, route}: Props) {
                         </View>
                       ) : null}
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
