@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useEffect, useState, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,21 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  Animated,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {ArrowLeft, Volume2, VolumeX} from 'lucide-react-native';
+import {ArrowLeft, Volume2, VolumeX, Camera, ImageIcon, Mic, Send, Square, Trash2} from 'lucide-react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../../App';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
 import {sendTextQuery, sendVoiceQuery, describeImages} from '../services/apiService';
-import {playBase64Audio, stopAudio} from '../services/voiceService';
+import {playBase64Audio, stopAudio, startRecording, stopRecording} from '../services/voiceService';
+import {takePhoto, pickFromGallery, type PickedImage} from '../services/imageService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -27,13 +33,63 @@ interface ChatMessage {
 }
 
 export function ChatScreen({navigation, route}: Props) {
-  const {pharaohName, initialQuery, voiceMode, imageUri, audioFilePath} =
+  const {pharaohName, gender, initialQuery, voiceMode, imageUri, audioFilePath} =
     route.params ?? {};
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Input bar state ─────────────────────────────────────────
+  const [inputText, setInputText] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const currentGender = gender || 'male';
+
+  // ── Recording pulse animation ──────────────────────────────
+  useEffect(() => {
+    if (isRecording) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {toValue: 1.3, duration: 600, useNativeDriver: true}),
+          Animated.timing(pulseAnim, {toValue: 1, duration: 600, useNativeDriver: true}),
+        ]),
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isRecording, pulseAnim]);
+
+  // ── Recording timer ────────────────────────────────────────
+  useEffect(() => {
+    if (isRecording) {
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+    } else {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    }
+    return () => { if (timerRef.current) { clearInterval(timerRef.current); } };
+  }, [isRecording]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const scrollToBottom = () => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
+  };
 
   // ── Process the incoming query on mount ─────────────────────
   const processQuery = useCallback(async () => {
@@ -45,7 +101,7 @@ export function ChatScreen({navigation, route}: Props) {
       if (voiceMode && audioFilePath) {
         setMessages([{role: 'user', text: '🎤 Voice message'}]);
 
-        const result = await sendVoiceQuery(audioFilePath);
+        const result = await sendVoiceQuery(audioFilePath, {gender: currentGender});
 
         setMessages([
           {role: 'user', text: result.transcript || '🎤 Voice message'},
@@ -55,6 +111,7 @@ export function ChatScreen({navigation, route}: Props) {
             audioBase64: result.audio_base64,
           },
         ]);
+        scrollToBottom();
         return;
       }
 
@@ -63,17 +120,16 @@ export function ChatScreen({navigation, route}: Props) {
         const queryText = initialQuery || 'Describe this image';
         setMessages([{role: 'user', text: queryText, imageUri}]);
 
-        // First describe the image via /describe-images
         const descResult = await describeImages([imageUri]);
         const descriptions = descResult.descriptions;
 
-        // Then send text query with image descriptions
-        const result = await sendTextQuery(queryText, descriptions);
+        const result = await sendTextQuery(queryText, descriptions, currentGender);
 
         setMessages(prev => [
           ...prev,
           {role: 'assistant', text: result.answer},
         ]);
+        scrollToBottom();
         return;
       }
 
@@ -84,23 +140,118 @@ export function ChatScreen({navigation, route}: Props) {
 
       setMessages([{role: 'user', text: queryText}]);
 
-      const result = await sendTextQuery(queryText);
+      const result = await sendTextQuery(queryText, undefined, currentGender);
 
       setMessages(prev => [
         ...prev,
         {role: 'assistant', text: result.answer},
       ]);
+      scrollToBottom();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       setError(msg);
     } finally {
       setLoading(false);
     }
-  }, [voiceMode, audioFilePath, imageUri, initialQuery, pharaohName]);
+  }, [voiceMode, audioFilePath, imageUri, initialQuery, pharaohName, currentGender]);
 
   useEffect(() => {
     processQuery();
   }, [processQuery]);
+
+  // ── Send a follow-up text message ──────────────────────────
+  const handleSend = useCallback(async () => {
+    const text = inputText.trim();
+    if (!text && !pickedImage) { return; }
+
+    const userText = text || 'Describe this image';
+    const userImageUri = pickedImage?.uri;
+
+    setInputText('');
+    setPickedImage(null);
+    setMessages(prev => [...prev, {role: 'user', text: userText, imageUri: userImageUri}]);
+    setIsSending(true);
+    scrollToBottom();
+
+    try {
+      let descriptions: string[] | undefined;
+      if (userImageUri) {
+        const descResult = await describeImages([userImageUri]);
+        descriptions = descResult.descriptions;
+      }
+
+      const result = await sendTextQuery(userText, descriptions, currentGender);
+      setMessages(prev => [...prev, {role: 'assistant', text: result.answer}]);
+      scrollToBottom();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      setMessages(prev => [...prev, {role: 'assistant', text: `Error: ${msg}`}]);
+    } finally {
+      setIsSending(false);
+    }
+  }, [inputText, pickedImage, currentGender]);
+
+  // ── Voice recording ────────────────────────────────────────
+  const handleMicPress = useCallback(async () => {
+    if (isRecording) {
+      try {
+        setIsSending(true);
+        const result = await stopRecording();
+        setIsRecording(false);
+
+        setMessages(prev => [...prev, {role: 'user', text: '🎤 Voice message'}]);
+        scrollToBottom();
+
+        const voiceResult = await sendVoiceQuery(result.filePath, {gender: currentGender});
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: 'user',
+            text: voiceResult.transcript || '🎤 Voice message',
+          };
+          return [
+            ...updated,
+            {role: 'assistant', text: voiceResult.answer, audioBase64: voiceResult.audio_base64},
+          ];
+        });
+        scrollToBottom();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Recording failed';
+        Alert.alert('Recording Error', msg);
+      } finally {
+        setIsSending(false);
+      }
+    } else {
+      try {
+        await startRecording();
+        setIsRecording(true);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Could not start recording';
+        Alert.alert('Microphone Error', msg);
+      }
+    }
+  }, [isRecording, currentGender]);
+
+  // ── Image picking ──────────────────────────────────────────
+  const handleTakePhoto = useCallback(async () => {
+    try {
+      const image = await takePhoto();
+      if (image) { setPickedImage(image); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Camera error';
+      Alert.alert('Camera Error', msg);
+    }
+  }, []);
+
+  const handlePickGallery = useCallback(async () => {
+    try {
+      const image = await pickFromGallery();
+      if (image) { setPickedImage(image); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gallery error';
+      Alert.alert('Gallery Error', msg);
+    }
+  }, []);
 
   const handlePlayAudio = async (audioBase64: string) => {
     try {
@@ -138,11 +289,30 @@ export function ChatScreen({navigation, route}: Props) {
           <View style={styles.backButton} />
         </View>
 
-        {/* ── Messages ────────────────────────────────────── */}
-        <ScrollView
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}>
-          {messages.map((msg, idx) => (
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+
+          {/* ── Messages ────────────────────────────────────── */}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.messagesContainer}
+            contentContainerStyle={styles.messagesContent}
+            keyboardShouldPersistTaps="handled">
+
+            {/* Empty state placeholder */}
+            {messages.length === 0 && !loading && !error && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>𓂀</Text>
+                <Text style={styles.emptyTitle}>Ask the Scribe</Text>
+                <Text style={styles.emptySubtitle}>
+                  Type a question, send a photo, or use your voice to learn about Ancient Egypt
+                </Text>
+              </View>
+            )}
+
+            {messages.map((msg, idx) => (
             <View
               key={idx}
               style={[
@@ -184,7 +354,7 @@ export function ChatScreen({navigation, route}: Props) {
             </View>
           ))}
 
-          {loading && (
+          {(loading || isSending) && (
             <View style={[styles.messageBubble, styles.assistantBubble]}>
               <ActivityIndicator size="small" color={Colors.primary} />
               <Text style={styles.loadingText}>Consulting the archives...</Text>
@@ -203,6 +373,90 @@ export function ChatScreen({navigation, route}: Props) {
             </View>
           )}
         </ScrollView>
+
+        {/* ── Input Bar ───────────────────────────────────── */}
+        <View style={styles.inputBar}>
+          {/* Image preview */}
+          {pickedImage && (
+            <View style={styles.imagePreviewContainer}>
+              <Image source={{uri: pickedImage.uri}} style={styles.imagePreview} />
+              <TouchableOpacity
+                style={styles.removeImageButton}
+                onPress={() => setPickedImage(null)}
+                activeOpacity={0.7}>
+                <Trash2 size={16} color={Colors.textWhite} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Text input row */}
+          <View style={styles.inputRow}>
+            <TextInput
+              ref={inputRef}
+              style={styles.textInput}
+              placeholder="Ask anything..."
+              placeholderTextColor={Colors.textWhite40}
+              value={inputText}
+              onChangeText={setInputText}
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
+              multiline
+              maxLength={500}
+            />
+          </View>
+
+          {/* Action row */}
+          <View style={styles.actionRow}>
+            <View style={styles.actionLeft}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleTakePhoto}
+                activeOpacity={0.7}>
+                <Camera size={20} color={Colors.textWhite70} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handlePickGallery}
+                activeOpacity={0.7}>
+                <ImageIcon size={20} color={Colors.textWhite70} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, isRecording && styles.actionButtonActive]}
+                onPress={handleMicPress}
+                activeOpacity={0.7}>
+                {isRecording ? (
+                  <>
+                    <Square size={16} color={Colors.terracotta} />
+                    <Text style={[styles.actionButtonLabel, {color: Colors.terracotta}]}>
+                      {formatTime(recordingTime)}
+                    </Text>
+                  </>
+                ) : (
+                  <Mic size={20} color={Colors.textWhite70} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {isSending ? (
+              <View style={styles.sendButton}>
+                <ActivityIndicator size="small" color={Colors.backgroundDark} />
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  !(inputText.trim() || pickedImage) && styles.sendButtonDisabled,
+                ]}
+                onPress={handleSend}
+                activeOpacity={0.8}
+                disabled={!(inputText.trim() || pickedImage)}>
+                <Send size={20} color={(inputText.trim() || pickedImage) ? Colors.backgroundDark : Colors.textWhite40} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -214,6 +468,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundDark,
   },
   inner: {
+    flex: 1,
+  },
+  keyboardView: {
     flex: 1,
   },
 
@@ -255,6 +512,31 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: Spacing.lg,
     gap: Spacing.md,
+    paddingBottom: Spacing.md,
+    flexGrow: 1,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xxl,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    color: Colors.primary,
+    marginBottom: Spacing.md,
+  },
+  emptyTitle: {
+    fontSize: FontSizes.xl,
+    fontWeight: '700',
+    color: Colors.textWhite,
+    marginBottom: Spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: FontSizes.sm,
+    color: Colors.textWhite50,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   messageBubble: {
     maxWidth: '85%',
@@ -338,5 +620,94 @@ const styles = StyleSheet.create({
     color: Colors.textWhite,
     fontSize: FontSizes.xs,
     fontWeight: '700',
+  },
+
+  // ── Input Bar ─────────────────────────────────────────────
+  inputBar: {
+    backgroundColor: Colors.cardDark,
+    borderTopWidth: 1,
+    borderTopColor: Colors.textWhite10,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.textWhite,
+    lineHeight: 22,
+    maxHeight: 100,
+    textAlignVertical: 'top',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.xs,
+  },
+  actionLeft: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.textWhite05,
+    justifyContent: 'center',
+  },
+  actionButtonLabel: {
+    fontSize: FontSizes.xs,
+    fontWeight: '500',
+  },
+  actionButtonActive: {
+    backgroundColor: 'rgba(192, 57, 43, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 57, 43, 0.3)',
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: Colors.textWhite10,
+  },
+
+  // ── Image preview ─────────────────────────────────────────
+  imagePreviewContainer: {
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 120,
+    borderRadius: BorderRadius.lg,
+    resizeMode: 'cover',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

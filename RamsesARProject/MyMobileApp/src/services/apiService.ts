@@ -5,15 +5,7 @@
  * voice queries, and image descriptions.
  */
 
-import {Platform} from 'react-native';
-
-// Android emulator uses 10.0.2.2 to reach the host machine's localhost
-// iOS simulator uses localhost directly
-// For physical devices, replace with your machine's local IP
-const BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:8000',
-  ios: 'http://localhost:8000',
-}) as string;
+const BASE_URL = 'https://8jhl85nn-8000.uks1.devtunnels.ms';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -46,8 +38,9 @@ export interface ImageDescriptionResponse {
 export async function sendTextQuery(
   prompt: string,
   imageDescriptions?: string[],
+  gender: 'male' | 'female' = 'male',
 ): Promise<QueryResponse> {
-  const body: Record<string, unknown> = {prompt};
+  const body: Record<string, unknown> = {prompt, gender};
   if (imageDescriptions && imageDescriptions.length > 0) {
     body.image_descriptions = imageDescriptions;
   }
@@ -70,14 +63,25 @@ export async function sendTextQuery(
 
 export async function sendVoiceQuery(
   audioFilePath: string,
-  mimeType: string = 'audio/wav',
+  options?: {
+    mimeType?: string;
+    gender?: 'male' | 'female';
+    tts_provider?: string;
+    tts_model?: string;
+    stt_model?: string;
+  },
 ): Promise<VoiceQueryResponse> {
+  const {mimeType = 'audio/wav', gender, tts_provider, tts_model, stt_model} = options ?? {};
   const formData = new FormData();
   formData.append('audio', {
     uri: audioFilePath,
     type: mimeType,
     name: 'recording.wav',
   } as unknown as Blob);
+  if (gender) { formData.append('gender', gender); }
+  if (tts_provider) { formData.append('tts_provider', tts_provider); }
+  if (tts_model) { formData.append('tts_model', tts_model); }
+  if (stt_model) { formData.append('stt_model', stt_model); }
 
   const res = await fetch(`${BASE_URL}/voice-query`, {
     method: 'POST',

@@ -31,7 +31,7 @@ export function HomeScreen({navigation}: Props) {
   const handlePharaohPress = (pharaoh: Pharaoh) => {
     // Navigate to chat screen with selected pharaoh context
     // For now, navigate to AR as that's the existing route
-    navigation.navigate('Chat', {pharaohName: pharaoh.name});
+    navigation.navigate('Chat', {pharaohName: pharaoh.name, gender: pharaoh.gender});
   };
 
   const handleTextSubmit = (text: string, imageUri?: string) => {

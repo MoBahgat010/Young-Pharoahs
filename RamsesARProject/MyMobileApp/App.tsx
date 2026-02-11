@@ -14,6 +14,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   Chat: {
     pharaohName?: string;
+    gender?: 'male' | 'female';
     initialQuery?: string;
     voiceMode?: boolean;
     imageUri?: string;

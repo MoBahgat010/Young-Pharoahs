@@ -5,6 +5,7 @@
 export interface Pharaoh {
   id: string;
   name: string;
+  gender: 'male' | 'female';
   imageUrl: string;
 }
 
@@ -12,54 +13,63 @@ export const PHARAOHS: Pharaoh[] = [
   {
     id: 'ramses-ii',
     name: 'Ramses II',
+    gender: 'male',
     imageUrl:
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpcvcDP-OCNNP-PBuAVhmsuctcjr1Amg-PTQ&s',
   },
   {
     id: 'tutankhamun',
     name: 'Tutankhamun',
+    gender: 'male',
     imageUrl:
       'https://cdn.britannica.com/99/4799-050-F1B26AEA/Tutankhamen-mask-tomb-king-Egyptian-Museum-Cairo.jpg',
   },
   {
     id: 'cleopatra-vii',
     name: 'Cleopatra VII',
+    gender: 'female',
     imageUrl:
       'https://i1.sndcdn.com/artworks-kPTRyWC1jWWFWqjz-6bqJjA-t500x500.jpg',
   },
   {
     id: 'khufu',
     name: 'Khufu',
+    gender: 'male',
     imageUrl:
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS9LV7GzdFMKIG6_15ldST8Mc1uOPGfixcsYw&s',
   },
   {
     id: 'hatshepsut',
     name: 'Hatshepsut',
+    gender: 'female',
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Seated_Statue_of_Hatshepsut_MET_Hatshepsut2012.jpg/500px-Seated_Statue_of_Hatshepsut_MET_Hatshepsut2012.jpg',
   },
   {
     id: 'seti-i',
     name: 'Seti I',
+    gender: 'male',
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/SetiI-KneelingStatueOfferingToOsiris-CloseUp_MetropolitanMuseum.png/500px-SetiI-KneelingStatueOfferingToOsiris-CloseUp_MetropolitanMuseum.png',
   },
   {
     id: 'thutmose-iii',
     name: 'Thutmose III',
+    gender: 'male',
     imageUrl:
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTKUcLGomW8XZuR2M87yn52bK4vTkd53KAcjDdIjpfza2_f1REDeHPnWrd_QbJniIMxa7xx3l4BVj0WmrhgJxOi76XFZqnITsEfsbrOLyjJ&s=10',
   },
   {
     id: 'amenhotep-iii',
     name: 'Amenhotep III',
+    gender: 'male',
     imageUrl:
       'https://i0.wp.com/egypt-museum.com/wp-content/uploads/2022/10/Statue-of-Amenhotep-III.jpg?w=400&ssl=1',
   },
   {
     id: 'senusret-iii',
     name: 'Senusret III',
+    gender: 'male',
     imageUrl:
       'https://thumbs.dreamstime.com/b/london-united-kingdom-senwosret-iii-th-dynasty-ruler-egypt-his-deeds-were-traditionally-conflated-predecessors-295392412.jpg',
   },

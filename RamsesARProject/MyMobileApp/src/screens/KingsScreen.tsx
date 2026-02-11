@@ -28,7 +28,7 @@ type Props = CompositeScreenProps<
 
 export function KingsScreen({navigation}: Props) {
   const handlePharaohPress = (pharaoh: Pharaoh) => {
-    navigation.navigate('Chat', {pharaohName: pharaoh.name});
+    navigation.navigate('Chat', {pharaohName: pharaoh.name, gender: pharaoh.gender});
   };
 
   return (
