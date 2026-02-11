@@ -103,33 +103,37 @@ async def voice_query_rag(
         )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"LLM generation failed: {e}")
-
-    # Store assistant response
-    if services.conversation_service and conversation_id:
-        await services.conversation_service.add_message(
-            conversation_id, "assistant", answer, audio_base64=audio_base64
-        )
     
     answer_reformatted = answer.replace("*", "").strip()
 
     # 5) TTS
+    # 5) TTS
+    provider_used = "deepgram"
+    
+    # Handle model selection strictly based on gender if model not explicitly provided
+    if tts_model:
+        model_used = tts_model
+    elif gender and gender.lower() == "male":
+        model_used = "aura-helios-en"
+    else:
+        model_used = settings.deepgram_tts_model
+
     try:
         audio_out = services.tts_service.synthesize(
             text=answer_reformatted,
-            provider=tts_provider,
+            provider="deepgram",
             voice=gender,
-            model=tts_model,
+            model=model_used,
         )
     except (RuntimeError, ValueError) as e:
         raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
 
     audio_base64 = base64.b64encode(audio_out).decode("utf-8")
 
-    provider_used = (tts_provider or settings.tts_provider).lower()
-    if provider_used == "deepgram":
-        model_used = tts_model or settings.deepgram_tts_model
-    else:
-        model_used = tts_model or settings.elevenlabs_default_model
+    if services.conversation_service and conversation_id:
+        await services.conversation_service.add_message(
+            conversation_id, "assistant", answer, audio_base64=audio_base64
+        )
 
     return VoiceQueryResponse(
         transcript=transcript,
