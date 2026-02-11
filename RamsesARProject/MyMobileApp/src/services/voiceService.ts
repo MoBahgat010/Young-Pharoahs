@@ -133,6 +133,55 @@ export async function playAudio(filePath: string): Promise<void> {
   });
 }
 
+export interface PlaybackProgress {
+  currentPositionMs: number;
+  durationMs: number;
+}
+
+/**
+ * Play audio with progress callback (WhatsApp-style).
+ */
+export async function playAudioWithProgress(
+  filePath: string,
+  onProgress: (progress: PlaybackProgress) => void,
+): Promise<void> {
+  try {
+    await audioRecorderPlayer.stopPlayer();
+  } catch (_) {}
+  audioRecorderPlayer.removePlayBackListener();
+
+  await audioRecorderPlayer.startPlayer(filePath);
+  return new Promise<void>((resolve) => {
+    audioRecorderPlayer.addPlayBackListener((e) => {
+      onProgress({
+        currentPositionMs: e.currentPosition,
+        durationMs: e.duration,
+      });
+      if (e.currentPosition >= e.duration) {
+        audioRecorderPlayer.stopPlayer();
+        audioRecorderPlayer.removePlayBackListener();
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * Seek to a position in the currently playing audio.
+ */
+export async function seekAudio(positionMs: number): Promise<void> {
+  await audioRecorderPlayer.seekToPlayer(positionMs);
+}
+
+/**
+ * Write base64 audio to a temp file and return the path.
+ */
+export async function writeBase64ToFile(base64Data: string, filename = 'pharaohs_response.mp3'): Promise<string> {
+  const tempPath = `${RNFS.CachesDirectoryPath}/${filename}`;
+  await RNFS.writeFile(tempPath, base64Data, 'base64');
+  return tempPath;
+}
+
 /**
  * Play audio from base64 data by writing to a temp file first.
  */

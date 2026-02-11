@@ -9,19 +9,24 @@ import {
   Image,
   TextInput,
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Alert,
   Animated,
+  Dimensions,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {ArrowLeft, Volume2, VolumeX, Camera, ImageIcon, Mic, Send, Square, Trash2} from 'lucide-react-native';
+import {ArrowLeft, Camera, ImageIcon, Mic, Send, Square, Trash2} from 'lucide-react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../../App';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
+
+const {width: SCREEN_WIDTH} = Dimensions.get('window');
 import {sendTextQuery, sendVoiceQuery, describeImages} from '../services/apiService';
-import {playBase64Audio, stopAudio, startRecording, stopRecording} from '../services/voiceService';
+import {stopAudio, startRecording, stopRecording} from '../services/voiceService';
 import {takePhoto, pickFromGallery, type PickedImage} from '../services/imageService';
+import {VoiceMessageBubble} from '../components/VoiceMessageBubble';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -30,6 +35,8 @@ interface ChatMessage {
   text: string;
   imageUri?: string;
   audioBase64?: string;
+  voiceFilePath?: string;
+  voiceDurationMs?: number;
 }
 
 export function ChatScreen({navigation, route}: Props) {
@@ -38,7 +45,7 @@ export function ChatScreen({navigation, route}: Props) {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // ── Input bar state ─────────────────────────────────────────
@@ -99,12 +106,21 @@ export function ChatScreen({navigation, route}: Props) {
     try {
       // Voice input path: send audio file to /voice-query
       if (voiceMode && audioFilePath) {
-        setMessages([{role: 'user', text: '🎤 Voice message'}]);
+        console.log('[Chat] Voice query path — audioFilePath:', audioFilePath);
+        setMessages([{role: 'user', text: '🎤 Voice message', voiceFilePath: audioFilePath}]);
 
         const result = await sendVoiceQuery(audioFilePath, {gender: currentGender});
+        console.log('[Chat] Voice query response:', {
+          transcript: result.transcript,
+          answerLength: result.answer?.length,
+          hasAudio: !!result.audio_base64,
+          audioBase64Length: result.audio_base64?.length,
+          tts_provider: result.tts_provider,
+          tts_model: result.tts_model,
+        });
 
         setMessages([
-          {role: 'user', text: result.transcript || '🎤 Voice message'},
+          {role: 'user', text: result.transcript || '🎤 Voice message', voiceFilePath: audioFilePath},
           {
             role: 'assistant',
             text: result.answer,
@@ -122,12 +138,20 @@ export function ChatScreen({navigation, route}: Props) {
 
         const descResult = await describeImages([imageUri]);
         const descriptions = descResult.descriptions;
+        console.log('[Chat] Image descriptions:', descriptions);
 
         const result = await sendTextQuery(queryText, descriptions, currentGender);
+        console.log('[Chat] Image+text query response:', {
+          answerLength: result.answer?.length,
+          hasAudio: !!result.audio_base64,
+          audioBase64Length: result.audio_base64?.length,
+          tts_provider: result.tts_provider,
+          tts_model: result.tts_model,
+        });
 
         setMessages(prev => [
           ...prev,
-          {role: 'assistant', text: result.answer},
+          {role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined},
         ]);
         scrollToBottom();
         return;
@@ -138,16 +162,27 @@ export function ChatScreen({navigation, route}: Props) {
         initialQuery || (pharaohName ? `Tell me about ${pharaohName}` : '');
       if (!queryText) {return;}
 
+      console.log('[Chat] Text-only query:', queryText, '| gender:', currentGender);
       setMessages([{role: 'user', text: queryText}]);
 
       const result = await sendTextQuery(queryText, undefined, currentGender);
+      console.log('[Chat] Text query response:', {
+        answer: result.answer?.substring(0, 100) + '...',
+        hasAudio: !!result.audio_base64,
+        audioBase64Length: result.audio_base64?.length,
+        tts_provider: result.tts_provider,
+        tts_model: result.tts_model,
+        search_query: result.search_query,
+        top_k: result.top_k,
+      });
 
       setMessages(prev => [
         ...prev,
-        {role: 'assistant', text: result.answer},
+        {role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined},
       ]);
       scrollToBottom();
     } catch (err: unknown) {
+      console.error('[Chat] processQuery error:', err);
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       setError(msg);
     } finally {
@@ -164,11 +199,13 @@ export function ChatScreen({navigation, route}: Props) {
     const text = inputText.trim();
     if (!text && !pickedImage) { return; }
 
+    Keyboard.dismiss();
     const userText = text || 'Describe this image';
     const userImageUri = pickedImage?.uri;
 
     setInputText('');
     setPickedImage(null);
+    console.log('[Chat] Sending message with image URI:', userImageUri);
     setMessages(prev => [...prev, {role: 'user', text: userText, imageUri: userImageUri}]);
     setIsSending(true);
     scrollToBottom();
@@ -180,10 +217,19 @@ export function ChatScreen({navigation, route}: Props) {
         descriptions = descResult.descriptions;
       }
 
+      console.log('[Chat] Follow-up send — text:', userText, '| hasImage:', !!userImageUri);
       const result = await sendTextQuery(userText, descriptions, currentGender);
-      setMessages(prev => [...prev, {role: 'assistant', text: result.answer}]);
+      console.log('[Chat] Follow-up response:', {
+        answerLength: result.answer?.length,
+        hasAudio: !!result.audio_base64,
+        audioBase64Length: result.audio_base64?.length,
+        tts_provider: result.tts_provider,
+        tts_model: result.tts_model,
+      });
+      setMessages(prev => [...prev, {role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined}]);
       scrollToBottom();
     } catch (err: unknown) {
+      console.error('[Chat] Follow-up send error:', err);
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       setMessages(prev => [...prev, {role: 'assistant', text: `Error: ${msg}`}]);
     } finally {
@@ -199,15 +245,31 @@ export function ChatScreen({navigation, route}: Props) {
         const result = await stopRecording();
         setIsRecording(false);
 
-        setMessages(prev => [...prev, {role: 'user', text: '🎤 Voice message'}]);
+        setMessages(prev => [...prev, {
+          role: 'user',
+          text: '🎤 Voice message',
+          voiceFilePath: result.filePath,
+          voiceDurationMs: result.durationMs,
+        }]);
         scrollToBottom();
 
         const voiceResult = await sendVoiceQuery(result.filePath, {gender: currentGender});
+        console.log('[Chat] Voice recording response:', {
+          transcript: voiceResult.transcript,
+          answerLength: voiceResult.answer?.length,
+          hasAudio: !!voiceResult.audio_base64,
+          audioBase64Length: voiceResult.audio_base64?.length,
+          tts_provider: voiceResult.tts_provider,
+          tts_model: voiceResult.tts_model,
+        });
         setMessages(prev => {
           const updated = [...prev];
+          const lastMsg = updated[updated.length - 1];
           updated[updated.length - 1] = {
             role: 'user',
             text: voiceResult.transcript || '🎤 Voice message',
+            voiceFilePath: lastMsg.voiceFilePath,
+            voiceDurationMs: lastMsg.voiceDurationMs,
           };
           return [
             ...updated,
@@ -253,20 +315,19 @@ export function ChatScreen({navigation, route}: Props) {
     }
   }, []);
 
-  const handlePlayAudio = async (audioBase64: string) => {
-    try {
-      if (isPlaying) {
-        await stopAudio();
-        setIsPlaying(false);
-      } else {
-        setIsPlaying(true);
-        await playBase64Audio(audioBase64);
-        setIsPlaying(false);
+  const handleVoiceBubblePlayChange = useCallback((msgIndex: number, playing: boolean) => {
+    if (playing) {
+      // Stop any other playing message first
+      if (playingIndex !== null && playingIndex !== msgIndex) {
+        stopAudio();
       }
-    } catch {
-      setIsPlaying(false);
+      setPlayingIndex(msgIndex);
+    } else {
+      if (playingIndex === msgIndex) {
+        setPlayingIndex(null);
+      }
     }
-  };
+  }, [playingIndex]);
 
   return (
     <View style={styles.container}>
@@ -291,7 +352,7 @@ export function ChatScreen({navigation, route}: Props) {
 
         <KeyboardAvoidingView
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
 
           {/* ── Messages ────────────────────────────────────── */}
@@ -325,6 +386,8 @@ export function ChatScreen({navigation, route}: Props) {
                 <Image
                   source={{uri: msg.imageUri}}
                   style={styles.messageImage}
+                  resizeMode="cover"
+                  onError={(e) => console.warn('[Chat] Image load error:', e.nativeEvent.error, 'URI:', msg.imageUri)}
                 />
               )}
               <Text
@@ -336,20 +399,15 @@ export function ChatScreen({navigation, route}: Props) {
                 ]}>
                 {msg.text}
               </Text>
-              {msg.audioBase64 && (
-                <TouchableOpacity
-                  style={styles.audioButton}
-                  onPress={() => handlePlayAudio(msg.audioBase64!)}
-                  activeOpacity={0.7}>
-                  {isPlaying ? (
-                    <VolumeX size={18} color={Colors.primary} />
-                  ) : (
-                    <Volume2 size={18} color={Colors.primary} />
-                  )}
-                  <Text style={styles.audioButtonText}>
-                    {isPlaying ? 'Stop' : 'Play response'}
-                  </Text>
-                </TouchableOpacity>
+              {(msg.voiceFilePath || msg.audioBase64) && (
+                <VoiceMessageBubble
+                  voiceFilePath={msg.voiceFilePath}
+                  audioBase64={msg.audioBase64}
+                  durationHintMs={msg.voiceDurationMs}
+                  isGloballyPlaying={playingIndex === idx}
+                  onPlayStateChange={(playing) => handleVoiceBubblePlayChange(idx, playing)}
+                  role={msg.role}
+                />
               )}
             </View>
           ))}
@@ -543,6 +601,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.xl,
     marginBottom: Spacing.sm,
+    overflow: 'hidden',
   },
   userBubble: {
     alignSelf: 'flex-end',
@@ -568,28 +627,10 @@ const styles = StyleSheet.create({
     color: Colors.textWhite90,
   },
   messageImage: {
-    width: '100%',
-    height: 150,
+    width: SCREEN_WIDTH * 0.85 - Spacing.lg * 2,
+    height: 180,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
-    resizeMode: 'cover',
-  },
-
-  // ── Audio button ──────────────────────────────────────────
-  audioButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.textWhite05,
-  },
-  audioButtonText: {
-    color: Colors.primary,
-    fontSize: FontSizes.xs,
-    fontWeight: '600',
   },
 
   // ── Loading & Error ───────────────────────────────────────
