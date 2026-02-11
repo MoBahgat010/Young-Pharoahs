@@ -1,61 +1,49 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useRef, useCallback} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  NativeModules,
   Platform,
   PermissionsAndroid,
   Alert,
-  DeviceEventEmitter,
 } from 'react-native';
+import UnityView from '@azesmway/react-native-unity';
 
 const ARScreen = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
-  const [isUnityReady, setIsUnityReady] = useState(false);
+  const [showUnity, setShowUnity] = useState(false);
+  const unityRef = useRef<UnityView>(null);
 
-  useEffect(() => {
-    // Listen for messages from Unity
-    const subscription = DeviceEventEmitter.addListener('onUnityMessage', (message) => {
-      console.log('Received message from Unity:', message);
-      
-      if (message === 'unity_ready') {
-        setIsUnityReady(true);
-        // If we have a selected character, send it to Unity now
-        if (selectedCharacter) {
-          sendCharacterToUnity(selectedCharacter);
-        }
-      } else if (message === 'character_loaded') {
-        console.log('Character loaded successfully');
-      }
-    });
-
-    return () => {
-      subscription.remove();
+  const sendCharacterToUnity = useCallback((characterId: string) => {
+    const data = {
+      characterId: characterId,
+      audioUrl: '',
     };
-  }, [selectedCharacter]); // Re-run if selectedCharacter changes (or just use ref/state access inside listener)
+    console.log('Sending LoadCharacter to Unity:', data);
+    unityRef.current?.postMessage(
+      'ARManager',
+      'LoadCharacter',
+      JSON.stringify(data),
+    );
+  }, []);
 
-  const sendCharacterToUnity = (characterId: string) => {
-    const {ReactNativeUnity} = NativeModules;
-    if (ReactNativeUnity && ReactNativeUnity.postMessage) {
-      const data = {
-        characterId: characterId,
-        audioUrl: '', // Add audio URL if needed later
-      };
-      
-      console.log('Sending LoadCharacter to Unity:', data);
-      ReactNativeUnity.postMessage(
-        'ARManager',
-        'LoadCharacter',
-        JSON.stringify(data),
-      );
+  const handleUnityMessage = useCallback((result: {nativeEvent: {message: string}}) => {
+    const message = result.nativeEvent.message;
+    console.log('Received message from Unity:', message);
+
+    if (message === 'unity_ready') {
+      if (selectedCharacter) {
+        sendCharacterToUnity(selectedCharacter);
+      }
+    } else if (message === 'character_loaded') {
+      console.log('Character loaded successfully');
     }
-  };
+  }, [selectedCharacter, sendCharacterToUnity]);
 
   const openUnity = async (characterId: string) => {
     setSelectedCharacter(characterId);
-    
+
     if (Platform.OS === 'android') {
       try {
         const granted = await PermissionsAndroid.request(
@@ -79,20 +67,45 @@ const ARScreen = () => {
         console.warn('Permission error:', err);
         return;
       }
+    }
 
-      // Launch Unity
-      const {ReactNativeUnity} = NativeModules;
-      if (ReactNativeUnity && ReactNativeUnity.openUnity) {
-        setIsUnityReady(false); // Reset ready state
-        ReactNativeUnity.openUnity();
-        
-        // Note: The actual message sending happens when 'unity_ready' is received
-        // OR if unity is already running/resident (depending on library behavior)
-      } else {
-        console.error('ReactNativeUnity native module not found');
-      }
+    // Mounting UnityView starts Unity
+    setShowUnity(true);
+
+    // If Unity is already mounted and ready, send immediately
+    if (unityRef.current) {
+      sendCharacterToUnity(characterId);
     }
   };
+
+  const closeUnity = () => {
+    unityRef.current?.unloadUnity();
+    setShowUnity(false);
+    setSelectedCharacter(null);
+  };
+
+  if (showUnity) {
+    return (
+      <View style={styles.unityContainer}>
+        <UnityView
+          ref={unityRef}
+          style={styles.unity}
+          onUnityMessage={handleUnityMessage}
+          onPlayerUnload={() => {
+            console.log('Unity player unloaded');
+            setShowUnity(false);
+          }}
+          onPlayerQuit={() => {
+            console.log('Unity player quit');
+            setShowUnity(false);
+          }}
+        />
+        <TouchableOpacity style={styles.closeButton} onPress={closeUnity}>
+          <Text style={styles.closeButtonText}>✕</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -128,7 +141,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#D4AF37', // Gold color for Pharaonic theme
+    color: '#D4AF37',
     marginBottom: 10,
   },
   subtitle: {
@@ -149,15 +162,38 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   buttonMale: {
-    backgroundColor: '#0056b3', // Royal Blue
+    backgroundColor: '#0056b3',
   },
   buttonFemale: {
-    backgroundColor: '#c71585', // Medium Violet Red
+    backgroundColor: '#c71585',
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  unityContainer: {
+    flex: 1,
+  },
+  unity: {
+    flex: 1,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
 
