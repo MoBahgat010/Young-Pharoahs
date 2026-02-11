@@ -12,6 +12,7 @@ from app.services.database import DatabaseService
 from app.services.auth_service import AuthService
 from app.services.places_service import PlacesService
 from app.services.uber_service import UberService
+from app.services.conversation_service import ConversationService
 
 __all__ = [
     "EmbeddingService",
@@ -25,4 +26,5 @@ __all__ = [
     "AuthService",
     "PlacesService",
     "UberService",
+    "ConversationService",
 ]
