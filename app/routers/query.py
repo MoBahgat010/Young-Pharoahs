@@ -189,8 +189,11 @@ async def query_rag(
         # Store user message
         await services.conversation_service.add_message(conversation_id, "user", prompt)
     
+    # ── Query Rewriting ─────────────────────────────────────────────────────
+    rewritten_query = services.llm_service.rewrite_query(prompt, history)
+    
     # Enrich query with image context
-    search_query = enrich_query_with_images(prompt, valid_descriptions)
+    search_query = enrich_query_with_images(rewritten_query, valid_descriptions)
     logger.info(f"Search query: '{search_query[:100]}...'")
     
     # Perform vector search

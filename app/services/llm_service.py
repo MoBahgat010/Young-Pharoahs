@@ -81,6 +81,62 @@ class LLMService:
         except Exception as e:
             logger.error(f"Text generation failed: {e}")
             raise RuntimeError(f"LLM generation failed: {e}") from e
+
+    def rewrite_query(
+        self,
+        query: str,
+        history: list[dict] | None = None,
+    ) -> str:
+        """
+        Rewrite a follow-up query into a standalone search query using conversation history.
+        
+        If there is no history, returns the original query unchanged.
+        
+        Args:
+            query: The user's current message.
+            history: Previous conversation messages [{"role": ..., "content": ...}].
+            
+        Returns:
+            A rewritten, self-contained search query.
+        """
+        if not history:
+            return query
+
+        history_lines = []
+        for msg in history[-6:]:  # last 6 messages max to save tokens
+            role = "User" if msg["role"] == "user" else "Assistant"
+            history_lines.append(f"{role}: {msg['content']}")
+        history_str = "\n".join(history_lines)
+
+        prompt = f"""Given the following conversation history and a new user question, rewrite the user question into a standalone search query that can be understood without the conversation history.
+
+Rules:
+- The rewritten query must be self-contained (resolve all pronouns like "he", "his", "it", "there")
+- Keep it concise — a short search phrase, NOT a full sentence
+- Do NOT answer the question, just rewrite it
+- If the question is already self-contained, return it as-is
+- Output ONLY the rewritten query, nothing else
+
+### Conversation History:
+{history_str}
+
+### New User Question:
+{query}
+
+### Rewritten Query:"""
+
+        try:
+            rewritten = self.generate(prompt)
+            # Clean up: remove quotes, extra whitespace
+            rewritten = rewritten.strip().strip('"').strip("'").strip()
+            if rewritten:
+                logger.info(f"Query rewritten: '{query}' → '{rewritten}'")
+                return rewritten
+            return query
+        except Exception as e:
+            logger.warning(f"Query rewriting failed, using original: {e}")
+            return query
+
     
     def generate_with_context(
         self, 

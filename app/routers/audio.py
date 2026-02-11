@@ -78,13 +78,16 @@ async def voice_query_rag(
 
         await services.conversation_service.add_message(conversation_id, "user", transcript)
 
-    # 3) Retrieve documents
+    # 3) Rewrite query for better retrieval
+    rewritten_query = services.llm_service.rewrite_query(transcript, history)
+
+    # 4) Retrieve documents
     try:
         k = settings.top_k
-        results = services.vector_store_service.similarity_search(transcript, k=k)
+        results = services.vector_store_service.similarity_search(rewritten_query, k=k)
 
         rerank_top_k = settings.rerank_top_k
-        results = services.reranker_service.rerank(transcript, results, top_k=rerank_top_k)
+        results = services.reranker_service.rerank(rewritten_query, results, top_k=rerank_top_k)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
