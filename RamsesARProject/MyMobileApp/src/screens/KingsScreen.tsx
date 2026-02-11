@@ -58,7 +58,6 @@ export function KingsScreen({navigation}: Props) {
               <View style={styles.cardOverlay} />
               <View style={styles.cardContent}>
                 <Text style={styles.cardName}>{pharaoh.name}</Text>
-                <Text style={styles.cardDynasty}>{pharaoh.dynasty}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -134,10 +133,5 @@ const styles = StyleSheet.create({
     color: Colors.textWhite,
     marginBottom: 2,
   },
-  cardDynasty: {
-    fontSize: FontSizes.xs,
-    color: Colors.primaryDim,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
+
 });

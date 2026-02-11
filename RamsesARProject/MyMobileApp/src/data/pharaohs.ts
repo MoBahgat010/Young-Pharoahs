@@ -5,7 +5,6 @@
 export interface Pharaoh {
   id: string;
   name: string;
-  dynasty: string;
   imageUrl: string;
 }
 
@@ -13,30 +12,56 @@ export const PHARAOHS: Pharaoh[] = [
   {
     id: 'ramses-ii',
     name: 'Ramses II',
-    dynasty: '19th Dynasty',
     imageUrl:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAql7vTMet1x2rPV1PjZBGsdsMfx0CaZnzh2y8aUfkDZo2iOMe4mWSPP2Njx_uf4HCF81A7JTqU-fd7VR-gJ_1FpMMeaDc0G1BJ9Z57OiTetX76tmVwPgJB-4JyDtba0ejiLfwc1FTZZtAApS2IywDPC0lvKprdQ6JRK00qOzBYerIjSBXTjD8_vBnv0ds2yo9bxVihtMty_9doMPxyGnn3nvL0rL3UHU_r5Vnkj1vESEis0X2tmg-igjsHkouhbmAcqibgzW54vw',
+      'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpcvcDP-OCNNP-PBuAVhmsuctcjr1Amg-PTQ&s',
   },
   {
-    id: 'nefertari',
-    name: 'Nefertari',
-    dynasty: 'Great Wife',
+    id: 'tutankhamun',
+    name: 'Tutankhamun',
     imageUrl:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBFLm4lPeqjsXeBXmgZ-SGXeiW13AACbHFTup_k-xFKPAoV3Zm-3O2qWGMmWQ7kw2OSphV0_UFFVFE3zWK1_7_MIZaIyp2qAuaQlePt63508KrACUbJRtDjFoSeqGgeiWUvDgB748TqzgDb1Sw0suSoG2htAT1BYZYkwANir2rABnsAvnoaZ20o3bUeA-C1uMNKsEDMQ3FhAwsjxm6nDq_N9Xv52e_ypKyHX3KYmrRu50VkeMaLdqwpCJsxfO2aTcrMdfn72W0ZdQ',
+      'https://cdn.britannica.com/99/4799-050-F1B26AEA/Tutankhamen-mask-tomb-king-Egyptian-Museum-Cairo.jpg',
   },
   {
-    id: 'akhenaten',
-    name: 'Akhenaten',
-    dynasty: '18th Dynasty',
+    id: 'cleopatra-vii',
+    name: 'Cleopatra VII',
     imageUrl:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAyirDfbKbyxmt24KFuniAl-KwKkMfX38etcY2JrD4XWYWrvZJEjsg2QylCGmymKZLEhE5ln44nfdF8gtBZeiRUm85OBBkNQ8hnOn3So0vOmkWwMn4rDEOtCv9Yb9Pb9J2476P0yu09tK6EvejsaJwDAjhA32qpJiJZu-qHh2J7f0XAzT51LZrZkQ5VEUY2f4O2BrmASKIdoncjqO_fVe9v7DLDeUEsLkd_8rHPjwb92W9yz2bTAbE154CeSQzHgG5-hAxRoQMKMw',
+      'https://i1.sndcdn.com/artworks-kPTRyWC1jWWFWqjz-6bqJjA-t500x500.jpg',
+  },
+  {
+    id: 'khufu',
+    name: 'Khufu',
+    imageUrl:
+      'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS9LV7GzdFMKIG6_15ldST8Mc1uOPGfixcsYw&s',
   },
   {
     id: 'hatshepsut',
     name: 'Hatshepsut',
-    dynasty: 'The Queen King',
     imageUrl:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAhNxymG6B7ZAP9bokos-gQCQuhKOZb1zs3vKsNa-vjIB_IZqp0jN8eMdRWNbJ3S_qQplxEOV4I9H8VPa0N9ark8vxAKEhV2FlGZJ22NNqPnGRxg8B5AuLBKSVm6hAMgA-_b66e_1uO-gdEM9rS-eTBS6OKSWoK8T2ivZD5he4CU7IGjwiG17Nv9jqTsCLe2bnC-5E7KhpHyIXjgemt-7fYFEEqn2-SuOdWhIQusAbTAX_84qRb-CBCj_S3-CEtriMdtm4gbnKpTA',
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Seated_Statue_of_Hatshepsut_MET_Hatshepsut2012.jpg/500px-Seated_Statue_of_Hatshepsut_MET_Hatshepsut2012.jpg',
+  },
+  {
+    id: 'seti-i',
+    name: 'Seti I',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/SetiI-KneelingStatueOfferingToOsiris-CloseUp_MetropolitanMuseum.png/500px-SetiI-KneelingStatueOfferingToOsiris-CloseUp_MetropolitanMuseum.png',
+  },
+  {
+    id: 'thutmose-iii',
+    name: 'Thutmose III',
+    imageUrl:
+      'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTKUcLGomW8XZuR2M87yn52bK4vTkd53KAcjDdIjpfza2_f1REDeHPnWrd_QbJniIMxa7xx3l4BVj0WmrhgJxOi76XFZqnITsEfsbrOLyjJ&s=10',
+  },
+  {
+    id: 'amenhotep-iii',
+    name: 'Amenhotep III',
+    imageUrl:
+      'https://i0.wp.com/egypt-museum.com/wp-content/uploads/2022/10/Statue-of-Amenhotep-III.jpg?w=400&ssl=1',
+  },
+  {
+    id: 'senusret-iii',
+    name: 'Senusret III',
+    imageUrl:
+      'https://thumbs.dreamstime.com/b/london-united-kingdom-senwosret-iii-th-dynasty-ruler-egypt-his-deeds-were-traditionally-conflated-predecessors-295392412.jpg',
   },
 ];
 

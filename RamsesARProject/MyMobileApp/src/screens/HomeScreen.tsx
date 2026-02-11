@@ -102,7 +102,7 @@ export function HomeScreen({navigation}: Props) {
             contentContainerStyle={styles.carouselScroll}
             snapToInterval={128 + Spacing.lg}
             decelerationRate="fast">
-            {PHARAOHS.map(pharaoh => (
+            {PHARAOHS.slice(0, 4).map(pharaoh => (
               <PharaohCard
                 key={pharaoh.id}
                 pharaoh={pharaoh}

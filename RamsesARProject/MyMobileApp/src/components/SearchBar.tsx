@@ -34,6 +34,7 @@ export function SearchBar({onSubmitText, onSubmitVoice, onPressScan}: SearchBarP
   const [recordingTime, setRecordingTime] = useState(0);
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'camera' | 'voice' | null>(null);
   const inputRef = useRef<TextInput>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
@@ -71,10 +72,18 @@ export function SearchBar({onSubmitText, onSubmitVoice, onPressScan}: SearchBarP
           useNativeDriver: true,
         }),
       ]).start(() => {
-        inputRef.current?.focus();
+        if (pendingAction === 'camera') {
+          setPendingAction(null);
+          handleTakePhoto();
+        } else if (pendingAction === 'voice') {
+          setPendingAction(null);
+          handleMicPress();
+        } else {
+          inputRef.current?.focus();
+        }
       });
     }
-  }, [expanded, fadeAnim, slideAnim]);
+  }, [expanded, fadeAnim, slideAnim, pendingAction]);
 
   // ── Recording timer ───────────────────────────────────────
   useEffect(() => {
@@ -216,7 +225,8 @@ export function SearchBar({onSubmitText, onSubmitVoice, onPressScan}: SearchBarP
             style={styles.iconButton}
             onPress={(e) => {
               e.stopPropagation();
-              handleScanAction();
+              setPendingAction('camera');
+              setExpanded(true);
             }}
             activeOpacity={0.7}>
             <ScanLine size={24} color={Colors.textWhite70} />
@@ -239,7 +249,8 @@ export function SearchBar({onSubmitText, onSubmitVoice, onPressScan}: SearchBarP
             style={[styles.micButton, isRecording && styles.micButtonRecording]}
             onPress={(e) => {
               e.stopPropagation();
-              handleMicPress();
+              setPendingAction('voice');
+              setExpanded(true);
             }}
             activeOpacity={0.8}>
             {isRecording ? (

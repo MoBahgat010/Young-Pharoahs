@@ -33,7 +33,6 @@ export function PharaohCard({pharaoh, onPress}: PharaohCardProps) {
 
       {/* Label */}
       <View style={styles.labelContainer}>
-        <Text style={styles.dynasty}>{pharaoh.dynasty}</Text>
         <Text style={styles.name}>{pharaoh.name}</Text>
       </View>
     </TouchableOpacity>
@@ -71,12 +70,6 @@ const styles = StyleSheet.create({
     bottom: Spacing.md,
     left: Spacing.md,
     right: Spacing.sm,
-  },
-  dynasty: {
-    fontSize: FontSizes.xs,
-    color: Colors.primary,
-    fontWeight: '500',
-    marginBottom: 2,
   },
   name: {
     fontSize: FontSizes.sm,
