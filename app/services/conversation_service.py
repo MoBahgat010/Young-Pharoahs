@@ -73,7 +73,11 @@ class ConversationService:
         return doc.get("messages", [])
 
     async def add_message(
-        self, conversation_id: str, role: str, content: str
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+        audio_base64: str | None = None,
     ) -> None:
         """
         Append a message to the conversation.
@@ -82,19 +86,22 @@ class ConversationService:
             conversation_id: The conversation UUID.
             role: 'user' or 'assistant'.
             content: The message text.
+            audio_base64: Optional base64-encoded TTS audio.
         """
         now = datetime.now(timezone.utc)
+
+        message = {
+            "role": role,
+            "content": content,
+            "timestamp": now,
+        }
+        if audio_base64 is not None:
+            message["audio_base64"] = audio_base64
 
         result = await self.collection.update_one(
             {"conversation_id": conversation_id},
             {
-                "$push": {
-                    "messages": {
-                        "role": role,
-                        "content": content,
-                        "timestamp": now,
-                    }
-                },
+                "$push": {"messages": message},
                 "$set": {"updated_at": now},
             },
         )
@@ -118,14 +125,20 @@ class ConversationService:
 
     async def list_conversations(self, limit: int = 20) -> list[dict]:
         """
-        List recent conversations (metadata only, no messages).
+        List recent conversations with the last message for preview.
 
         Returns:
-            List of conversation summary dicts.
+            List of conversation summary dicts, each with a 'last_message' field.
         """
         cursor = self.collection.find(
             {},
-            {"_id": 0, "conversation_id": 1, "created_at": 1, "updated_at": 1},
+            {
+                "_id": 0,
+                "conversation_id": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "last_message": {"$arrayElemAt": ["$messages", -1]},
+            },
         ).sort("updated_at", -1).limit(limit)
 
         return await cursor.to_list(length=limit)

@@ -103,7 +103,9 @@ async def voice_query_rag(
 
     # Store assistant response
     if services.conversation_service and conversation_id:
-        await services.conversation_service.add_message(conversation_id, "assistant", answer)
+        await services.conversation_service.add_message(
+            conversation_id, "assistant", answer, audio_base64=audio_base64
+        )
     
     answer_reformatted = answer.replace("*", "").strip()
 
