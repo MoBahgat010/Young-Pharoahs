@@ -33,6 +33,31 @@ export interface ImageDescriptionResponse {
   descriptions: string[];
 }
 
+export interface Monument {
+  name: string;
+  details: string;
+  location_name: string;
+  location_url: string;
+  image_url: string;
+  location_image_url: string;
+  certain_location?: string;
+  uber_link?: string;
+}
+
+export interface PharaohDetailsResponse {
+  king_name: string;
+  monuments: Monument[];
+}
+
+export interface PharaohSearchResult {
+  king_name: string;
+  monuments: Monument[];
+}
+
+export interface PharaohSearchResponse {
+  results: PharaohSearchResult[];
+}
+
 // ── Text Query ─────────────────────────────────────────────────
 
 export async function sendTextQuery(
@@ -119,6 +144,38 @@ export async function describeImages(
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Image description failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
+}
+
+// ── Pharaoh Details (Monuments) ────────────────────────────────
+
+export async function fetchPharaohMonuments(
+  kingName: string,
+): Promise<PharaohDetailsResponse> {
+  const res = await fetch(`${BASE_URL}/pharaohs/${encodeURIComponent(kingName)}`);
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Pharaoh details failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
+}
+
+// ── Search Pharaohs Monuments ──────────────────────────────────
+
+export async function searchPharaohsMonuments(
+  query: string = '',
+): Promise<PharaohSearchResponse> {
+  const res = await fetch(
+    `${BASE_URL}/pharaohs/search?q=${encodeURIComponent(query)}`,
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Pharaoh search failed (${res.status}): ${err}`);
   }
 
   return res.json();

@@ -17,13 +17,14 @@ import {
   Dimensions,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {ArrowLeft, Camera, ImageIcon, Mic, Send, Square, Trash2} from 'lucide-react-native';
+import {ArrowLeft, Camera, ImageIcon, Mic, Send, Square, Trash2, MapPin, ChevronUp, ChevronDown} from 'lucide-react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../../App';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
-import {sendTextQuery, sendVoiceQuery, describeImages} from '../services/apiService';
+import {sendTextQuery, sendVoiceQuery, describeImages, fetchPharaohMonuments} from '../services/apiService';
+import type {Monument} from '../services/apiService';
 import {stopAudio, startRecording, stopRecording} from '../services/voiceService';
 import {takePhoto, pickFromGallery, type PickedImage} from '../services/imageService';
 import {VoiceMessageBubble} from '../components/VoiceMessageBubble';
@@ -47,6 +48,8 @@ export function ChatScreen({navigation, route}: Props) {
   const [loading, setLoading] = useState(false);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [monuments, setMonuments] = useState<Monument[]>([]);
+  const [monumentsExpanded, setMonumentsExpanded] = useState(false);
 
   // ── Input bar state ─────────────────────────────────────────
   const [inputText, setInputText] = useState('');
@@ -97,6 +100,20 @@ export function ChatScreen({navigation, route}: Props) {
   const scrollToBottom = () => {
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
   };
+
+  // ── Fetch monuments in parallel ─────────────────────────────
+  useEffect(() => {
+    if (pharaohName) {
+      fetchPharaohMonuments(pharaohName)
+        .then(data => {
+          console.log('[Chat] Monuments loaded:', data.monuments?.length);
+          setMonuments(data.monuments || []);
+        })
+        .catch(err => {
+          console.warn('[Chat] Monuments fetch failed:', err);
+        });
+    }
+  }, [pharaohName]);
 
   // ── Process the incoming query on mount ─────────────────────
   const processQuery = useCallback(async () => {
@@ -432,6 +449,54 @@ export function ChatScreen({navigation, route}: Props) {
           )}
         </ScrollView>
 
+        {/* ── Monuments Section ────────────────────────────── */}
+        {monuments.length > 0 && (
+          <View style={styles.monumentsSection}>
+            <TouchableOpacity
+              style={styles.monumentsHeader}
+              activeOpacity={0.7}
+              onPress={() => setMonumentsExpanded(prev => !prev)}>
+              <Text style={styles.monumentsTitle}>🏛 Here I Changed the History</Text>
+              {monumentsExpanded ? (
+                <ChevronDown size={18} color={Colors.textWhite50} />
+              ) : (
+                <ChevronUp size={18} color={Colors.textWhite50} />
+              )}
+            </TouchableOpacity>
+            {monumentsExpanded && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.monumentsScroll}>
+                {monuments.map((m, i) => (
+                  <View key={`monument-${i}`} style={styles.monumentCard}>
+                    {m.image_url ? (
+                      <Image
+                        source={{uri: m.image_url}}
+                        style={styles.monumentImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.monumentImage, styles.monumentImagePlaceholder]}>
+                        <Text style={styles.monumentPlaceholderIcon}>🏛</Text>
+                      </View>
+                    )}
+                    <View style={styles.monumentInfo}>
+                      <Text style={styles.monumentName} numberOfLines={2}>{m.name}</Text>
+                      {m.location_name ? (
+                        <View style={styles.monumentLocation}>
+                          <MapPin size={12} color={Colors.textWhite50} />
+                          <Text style={styles.monumentLocationText} numberOfLines={1}>{m.location_name}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        )}
+
         {/* ── Input Bar ───────────────────────────────────── */}
         <View style={styles.inputBar}>
           {/* Image preview */}
@@ -725,6 +790,68 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: Colors.textWhite10,
+  },
+
+  // ── Monuments ─────────────────────────────────────────────
+  monumentsSection: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.textWhite10,
+    paddingVertical: Spacing.sm,
+  },
+  monumentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  monumentsTitle: {
+    color: Colors.textWhite80,
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+  },
+  monumentsScroll: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  monumentCard: {
+    width: 140,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.cardDark,
+    borderWidth: 1,
+    borderColor: Colors.textWhite10,
+    overflow: 'hidden',
+  },
+  monumentImage: {
+    width: 140,
+    height: 90,
+  },
+  monumentImagePlaceholder: {
+    backgroundColor: Colors.textWhite05,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monumentPlaceholderIcon: {
+    fontSize: 28,
+  },
+  monumentInfo: {
+    padding: Spacing.sm,
+  },
+  monumentName: {
+    color: Colors.textWhite90,
+    fontSize: FontSizes.xs,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  monumentLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  monumentLocationText: {
+    color: Colors.textWhite50,
+    fontSize: FontSizes.tiny,
   },
 
   // ── Image preview ─────────────────────────────────────────
