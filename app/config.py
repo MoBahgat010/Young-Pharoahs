@@ -98,6 +98,9 @@ class Settings(BaseSettings):
     # ── Google Places Configuration ─────────────────────────────────────────
     google_places_api_key: str | None = Field(default=None, alias="GOOGLE_PLACES_API_KEY")
     places_radius: int = 5000  # search radius in meters
+
+    # ── Uber Configuration ──────────────────────────────────────────────────
+    uber_credentials_file: str = "uber_credentials.json"
     
     def validate_api_keys(self) -> None:
         """Validate that required API keys are present."""

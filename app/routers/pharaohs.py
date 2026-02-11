@@ -50,7 +50,7 @@ async def get_all_pharaohs(
 ):
     """List all pharaohs (names and basic info only)."""
     collection = services.database_service.get_collection("pharaohs")
-    cursor = collection.find({}, {"_id": 0, "king_name": 1, "monuments": 0})
+    cursor = collection.find({}, {"_id": 0, "king_name": 1})
     pharaohs = await cursor.to_list(length=None)
     return {"pharaohs": pharaohs}
 
@@ -76,7 +76,11 @@ async def get_pharaoh(
     king_name: str = Path(..., description="Name of the Pharaoh"),
     services: ServiceContainer = Depends(get_services)
 ):
-    return await _find_pharaoh(king_name, services)
+    pharaoh = await _find_pharaoh(king_name, services)
+    if "monuments" in pharaoh:
+        for m in pharaoh["monuments"]:
+            _enrich_monument_with_uber(m, services)
+    return pharaoh
 
 
 @router.get("/{king_name}/monuments")
@@ -86,7 +90,10 @@ async def get_pharaoh_monuments(
 ):
     """Return only the monuments list for a given pharaoh."""
     pharaoh = await _find_pharaoh(king_name, services)
-    return {"king_name": pharaoh["king_name"], "monuments": pharaoh.get("monuments", [])}
+    monuments = pharaoh.get("monuments", [])
+    for m in monuments:
+        _enrich_monument_with_uber(m, services)
+    return {"king_name": pharaoh["king_name"], "monuments": monuments}
 
 
 @router.get("/{king_name}/monuments/{monument_name}/nearby")
@@ -128,10 +135,30 @@ async def get_nearby_places(
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
+    # 4. Generate Uber deep link
+    uber_link = None
+    if services.uber_service:
+        uber_link = services.uber_service.get_deep_link(lat, lng, nickname=monument["name"])
+
     return {
         "king_name": pharaoh["king_name"],
         "monument": monument["name"],
         "location": {"lat": lat, "lng": lng},
+        "uber_link": uber_link,
         **nearby,
     }
+
+def _enrich_monument_with_uber(monument: dict, services: ServiceContainer):
+    """Add Uber deep link to monument if location_url is present."""
+    if not services.uber_service:
+        return monument
+        
+    location_url = monument.get("location_url")
+    if location_url:
+        try:
+            lat, lng = PlacesService.extract_coords_from_url(location_url)
+            monument["uber_link"] = services.uber_service.get_deep_link(lat, lng, nickname=monument.get("name"))
+        except ValueError:
+            pass # Skip if coords cannot be parsed
+    return monument
 

@@ -27,6 +27,7 @@ from app.services import (
     DatabaseService,
     AuthService,
     PlacesService,
+    UberService,
 )
 from app.routers import (
     query_router,
@@ -101,6 +102,10 @@ async def lifespan(app: FastAPI):
         # 10. Places Service
         places_service = PlacesService(settings)
         logger.info("Google Places service initialized")
+
+        # 11. Uber Service
+        uber_service = UberService(settings)
+        logger.info("Uber service initialized")
         
         # Create service container and inject into routers
         container = ServiceContainer(
@@ -114,6 +119,7 @@ async def lifespan(app: FastAPI):
             database_service=database_service,
             auth_service=auth_service,
             places_service=places_service,
+            uber_service=uber_service,
         )
         set_service_container(container)
         
