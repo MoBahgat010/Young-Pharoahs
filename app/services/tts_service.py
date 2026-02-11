@@ -56,7 +56,6 @@ class TTSService:
             if voice_id == "male":
                 voice_id = self.settings.elevenlabs_voice_male or self.settings.elevenlabs_voice_female
             else:
-                print("fdsfdsfds")
                 voice_id = self.settings.elevenlabs_voice_female or self.settings.elevenlabs_voice_male
 
         if not voice_id:
@@ -86,6 +85,7 @@ class TTSService:
         self,
         text: str,
         model: Optional[str] = None,
+        voice: Optional[str] = None,
     ) -> bytes:
         """
         Generate speech using Deepgram.
@@ -93,12 +93,21 @@ class TTSService:
         Args:
             text: Text to synthesize
             model: Deepgram TTS model override
+            voice: Voice gender ('male'/'female')
 
         Returns:
             Audio bytes (mp3)
         """
         api_key = self._require_deepgram_key()
-        tts_model = model or self.settings.deepgram_tts_model
+        
+        # Determine model based on voice/gender if model is not explicitly provided
+        tts_model = model
+        if not tts_model:
+            if voice and voice.lower() == "male":
+                tts_model = "aura-helios-en"  # Standard male voice
+            else:
+                # Default to settings (which is likely female/asteria) or specific female voice
+                tts_model = self.settings.deepgram_tts_model
 
         url = f"https://api.deepgram.com/v1/speak?model={tts_model}"
         headers = {
@@ -110,7 +119,7 @@ class TTSService:
             "text": text,
         }
 
-        logger.info("Sending text to Deepgram TTS")
+        logger.info(f"Sending text to Deepgram TTS (Model: {tts_model})")
         response = requests.post(url, headers=headers, json=payload, timeout=120)
 
         if response.status_code >= 400:
@@ -143,6 +152,6 @@ class TTSService:
         if selected_provider == "elevenlabs":
             return self.tts_elevenlabs(text=text, voice=voice, model=model)
         if selected_provider == "deepgram":
-            return self.tts_deepgram(text=text, model=model)
+            return self.tts_deepgram(text=text, model=model, voice=voice)
 
         raise ValueError(f"Unsupported TTS provider: {selected_provider}")

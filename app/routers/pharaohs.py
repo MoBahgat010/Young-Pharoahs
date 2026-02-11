@@ -48,10 +48,16 @@ def _find_monument(pharaoh: dict, monument_name: str) -> dict:
 async def get_all_pharaohs(
     services: ServiceContainer = Depends(get_services)
 ):
-    """List all pharaohs (names and basic info only)."""
+    """List all pharaohs (including monuments with Uber links)."""
     collection = services.database_service.get_collection("pharaohs")
-    cursor = collection.find({}, {"_id": 0, "king_name": 1})
+    cursor = collection.find({}, {"_id": 0})
     pharaohs = await cursor.to_list(length=None)
+    
+    for p in pharaohs:
+        if "monuments" in p:
+            for m in p["monuments"]:
+                _enrich_monument_with_uber(m, services)
+                
     return {"pharaohs": pharaohs}
 
 
@@ -65,9 +71,15 @@ async def search_pharaohs(
     # Case-insensitive regex search
     cursor = collection.find(
         {"king_name": {"$regex": q, "$options": "i"}},
-        {"_id": 0, "king_name": 1}
+        {"_id": 0}
     )
     results = await cursor.to_list(length=None)
+    
+    for p in results:
+        if "monuments" in p:
+            for m in p["monuments"]:
+                _enrich_monument_with_uber(m, services)
+                
     return {"results": results}
 
 
@@ -137,8 +149,8 @@ async def get_nearby_places(
 
     # 4. Generate Uber deep link
     uber_link = None
-    if services.uber_service:
-        uber_link = services.uber_service.get_deep_link(lat, lng, nickname=monument["name"])
+    # if services.uber_service:
+    #     uber_link = services.uber_service.get_deep_link(lat, lng, nickname=monument["name"])
 
     return {
         "king_name": pharaoh["king_name"],
@@ -157,7 +169,7 @@ def _enrich_monument_with_uber(monument: dict, services: ServiceContainer):
     if location_url:
         try:
             lat, lng = PlacesService.extract_coords_from_url(location_url)
-            monument["uber_link"] = services.uber_service.get_deep_link(lat, lng, nickname=monument.get("name"))
+            # monument["uber_link"] = services.uber_service.get_deep_link(lat, lng, nickname=monument.get("name"))
         except ValueError:
             pass # Skip if coords cannot be parsed
     return monument

@@ -17,7 +17,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter(dependencies=[])
 
 
 @router.post(

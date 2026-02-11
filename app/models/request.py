@@ -30,7 +30,7 @@ class QueryRequest(BaseModel):
         description="Optional list of image descriptions"
     )
     
-    # TTS Parameters
+    # TTS Parameters (Legacy - used for voice query logic or other purposes if needed)
     gender: Optional[str] = Field(None, description="Voice gender for TTS (female/male)")
     tts_provider: Optional[str] = Field(None, description="TTS provider (elevenlabs/deepgram)")
     tts_model: Optional[str] = Field(None, description="TTS model override")
@@ -42,5 +42,22 @@ class QueryRequest(BaseModel):
                 "image_descriptions": ["A statue of Ramses II"],
                 "gender": "male",
                 "tts_provider": "elevenlabs"
+            }
+        }
+
+
+class TTSRequest(BaseModel):
+    """Request model for TTS endpoint."""
+    
+    text: str = Field(..., description="Text to synthesize")
+    gender: Optional[str] = Field(None, description="Voice gender for TTS (female/male)")
+    tts_model: Optional[str] = Field(None, description="TTS model override")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "The river Nile is the longest river in the world.",
+                "gender": "male",
+                "tts_model": "aura-asteria-en"
             }
         }

@@ -8,7 +8,7 @@ import logging
 import base64
 from typing import List, Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body, Form
 from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated
 
@@ -166,6 +166,9 @@ async def query_rag(
     tts_provider = request.tts_provider
     tts_model = request.tts_model
 
+    logger.info("gender: ", gender)
+    logger.info("tts_provider: ", tts_provider)
+    logger.info("tts_model: ", tts_model)
     logger.info(f"Received query: '{prompt[:100]}...'")
     
     # Validate inputs
@@ -224,42 +227,75 @@ async def query_rag(
     except Exception as e:
         logger.error(f"Unexpected error during generation: {e}")
         raise HTTPException(status_code=500, detail=f"Generation error: {e}")
-    
-    audio_base64 = None
-    provider_used = None
-    model_used = None
 
-    # answer_reformatted = answer.replace("*", "").strip()
-
-    # # Determine TTS settings
-    # provider_used = (tts_provider or settings.tts_provider).lower()
-    # if provider_used == "deepgram":
-    #     model_used = tts_model or settings.deepgram_tts_model
-    # else:
-    #     model_used = tts_model or settings.elevenlabs_default_model
-
-    # # 4) TTS
-    # try:
-    #     audio_out = services.tts_service.synthesize(
-    #         text=answer_reformatted,
-    #         provider=provider_used,
-    #         voice=gender,
-    #         model=model_used,
-    #     )
-    # except (RuntimeError, ValueError) as e:
-    #     raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
-
-    # audio_base64 = base64.b64encode(audio_out).decode("utf-8")
+    logger.info(f"Answer: {answer}")
     
     response = QueryResponse(
         answer=answer,
         image_descriptions=valid_descriptions,
         search_query=search_query,
         top_k=k,
-        audio_base64=audio_base64,
-        tts_provider=provider_used,
-        tts_model=model_used,
+        audio_base64=None,
+        tts_provider=None,
+        tts_model=None,
     )
     
     logger.info("Query processed successfully")
     return response
+
+
+@router.post(
+    "/tts",
+    response_model=QueryResponse,
+    summary="Synthesize text to speech",
+    description="Convert text to speech using Deepgram.",
+    dependencies=[]
+)
+async def synthesize_speech(
+    text: str = Form(..., description="Text to synthesize"),
+    gender: Optional[str] = Form(None, description="Voice gender for TTS (female/male)"),
+    tts_model: Optional[str] = Form(None, description="TTS model override"),
+    services: ServiceContainer = Depends(get_services),
+) -> QueryResponse:
+    """
+    Convert text to speech using Deepgram.
+    Returns the result in QueryResponse structure.
+    """
+    if not text or not text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+        
+    provider_used = "deepgram"
+    provider_used = "deepgram"
+    
+    # Handle model selection strictly based on gender if model not explicitly provided
+    if tts_model:
+        model_used = tts_model
+    elif gender and gender.lower() == "male":
+        model_used = "aura-helios-en"
+    else:
+        model_used = settings.deepgram_tts_model
+    
+    # Preprocess text if needed (e.g. remove asterisks)
+    text_clean = text.replace("*", "").strip()
+    
+    try:
+        audio_out = services.tts_service.synthesize(
+            text=text_clean,
+            provider=provider_used,
+            voice=gender,
+            model=model_used,
+        )
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"TTS failed: {e}")
+        raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
+        
+    audio_base64 = base64.b64encode(audio_out).decode("utf-8")
+    
+    return QueryResponse(
+        answer=text,
+        search_query=text,
+        top_k=0,
+        audio_base64=audio_base64,
+        tts_provider=provider_used,
+        tts_model=model_used
+    )
