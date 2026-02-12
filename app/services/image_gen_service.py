@@ -1,10 +1,10 @@
 """
-Image Generation Service
-========================
-- GPT4All for prompt engineering
-- Stable Diffusion for image generation
+Advanced Image Generation Service
+=================================
+- Mistral 7B Q4 (GPT4All) for prompt engineering
+- SD-Turbo for fast diffusion
 - GPU/CPU safe
-- Memory optimized
+- Production-ready
 """
 
 import logging
@@ -14,166 +14,148 @@ import traceback
 from typing import List, Optional
 
 import torch
+from diffusers import AutoPipelineForText2Image
 from PIL import Image
-
-from app.config import Settings
 
 try:
     from gpt4all import GPT4All
 except ImportError:
     GPT4All = None
 
-try:
-    from diffusers import StableDiffusionPipeline
-except ImportError:
-    StableDiffusionPipeline = None
-
-
 logger = logging.getLogger(__name__)
 
 
 class ImageGenerationService:
-    _instance = None  # singleton to avoid reloading models
+    _instance = None
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(ImageGenerationService, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, settings: Settings):
-        if hasattr(self, "_initialized_once"):
-            return  # prevent re-init in FastAPI
-
-        self.settings = settings
-        self.llm_model = None
-        self.sd_pipeline = None
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._initialized_once = True
-
-    # ----------------------------
-    # INIT MODELS
-    # ----------------------------
-    def initialize(self):
-        if self.llm_model and self.sd_pipeline:
+    def __init__(self):
+        if hasattr(self, "_initialized"):
             return
 
-        logger.info(f"Initializing Image Service on device: {self.device}")
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.dtype = torch.float16 if self.device == "cuda" else torch.float32
+
+        self.llm_model = None
+        self.pipe = None
+
+        self._initialized = True
+
+    # ---------------- INIT ---------------- #
+
+    def initialize(self):
+        if self.pipe and self.llm_model:
+            return
+
+        logger.info(f"🚀 Initializing Image Service on {self.device}")
 
         self._load_llm()
-        self._load_stable_diffusion()
+        self._load_diffusion()
 
     def _load_llm(self):
         if GPT4All is None:
-            logger.warning("GPT4All not installed. Using fallback prompts.")
+            logger.error("❌ GPT4All not installed")
             return
 
         try:
-            logger.info("Loading GPT4All model...")
+            model_name = "mistral-7b-instruct-v0.1.Q4_0.gguf"
+
             self.llm_model = GPT4All(
-                "Orca-2-7b.Q4_0.gguf",
-                device="cuda" if self.device == "cuda" else "cpu"
+                model_name,
+                device="cuda" if self.device == "cuda" else "cpu",
             )
-            logger.info("GPT4All loaded successfully.")
+
+            logger.info("✅ Mistral 7B Q4 loaded successfully")
+
         except Exception:
-            logger.error("Failed to load GPT4All:\n" + traceback.format_exc())
+            logger.error("❌ Failed to load Mistral 7B:\n" + traceback.format_exc())
             self.llm_model = None
 
-    def _load_stable_diffusion(self):
-        if StableDiffusionPipeline is None:
-            logger.error("diffusers not installed.")
-            return
-
+    def _load_diffusion(self):
         try:
-            logger.info("Loading Stable Diffusion model...")
+            model_id = "stabilityai/sd-turbo"
 
-            model_id = "runwayml/stable-diffusion-v1-5"
-            dtype = torch.float16 if self.device == "cuda" else torch.float32
-
-            pipe = StableDiffusionPipeline.from_pretrained(
+            self.pipe = AutoPipelineForText2Image.from_pretrained(
                 model_id,
-                torch_dtype=dtype,
-                safety_checker=None,
-                requires_safety_checker=False
-            )
+                torch_dtype=self.dtype,
+                variant="fp16" if self.device == "cuda" else None,
+            ).to(self.device)
 
-            pipe = pipe.to(self.device)
-
-            # 🔥 Memory optimizations
-            pipe.enable_attention_slicing()
             if self.device == "cuda":
                 try:
-                    pipe.enable_xformers_memory_efficient_attention()
+                    self.pipe.enable_xformers_memory_efficient_attention()
                 except Exception:
                     logger.warning("xformers not available")
 
-            if self.device == "cpu":
-                pipe.enable_model_cpu_offload()
-
-            self.sd_pipeline = pipe
-            logger.info("Stable Diffusion loaded successfully.")
+            logger.info("✅ SD-Turbo loaded successfully")
 
         except Exception:
-            logger.error("Failed to load Stable Diffusion:\n" + traceback.format_exc())
-            self.sd_pipeline = None
+            logger.error("❌ Failed to load SD-Turbo:\n" + traceback.format_exc())
+            self.pipe = None
 
-    # ----------------------------
-    # PROMPT GENERATION
-    # ----------------------------
+    # ---------------- PROMPT ENGINE ---------------- #
+
     def generate_prompt_from_context(self, history: List[dict]) -> str:
         self.initialize()
 
         if not self.llm_model:
-            return "cinematic ancient egypt scene, ultra detailed, 4k, dramatic lighting"
+            logger.warning("⚠️ LLM not loaded, using fallback prompt")
+            return "cinematic, ultra realistic, dramatic lighting, 8k, detailed"
 
-        recent = history[-6:]
         context = "\n".join(
-            f"{msg.get('role', 'user')}: {msg.get('content')}" for msg in recent
+            f"{m.get('role', 'user')}: {m.get('content')}" for m in history[-6:]
         )
 
         system_prompt = (
             "You are an expert Stable Diffusion prompt engineer. "
-            "Create a vivid, cinematic visual prompt from the conversation. "
-            "Focus on style, lighting, environment, characters, and mood. "
+            "Generate a cinematic, photorealistic visual prompt from the conversation. "
+            "Focus on lighting, style, composition, and details. "
             "Return ONLY the prompt."
         )
 
         try:
             prompt = self.llm_model.generate(
                 f"{system_prompt}\n\nConversation:\n{context}\n\nPrompt:",
-                max_tokens=120
+                max_tokens=120,
+                temp=0.7,
             )
             return prompt.strip().replace('"', "")
-        except Exception:
-            logger.error("GPT4All prompt generation failed:\n" + traceback.format_exc())
-            return "cinematic ancient egypt, hyperrealistic, 8k, dramatic lighting"
 
-    # ----------------------------
-    # IMAGE GENERATION
-    # ----------------------------
+        except Exception:
+            logger.error("❌ Prompt generation failed:\n" + traceback.format_exc())
+            return "cinematic, ultra realistic, dramatic lighting, 8k, detailed"
+
+    # ---------------- IMAGE GENERATION ---------------- #
+
     def generate_image(self, prompt: str) -> Optional[str]:
         self.initialize()
 
-        if not self.sd_pipeline:
-            logger.error("Stable Diffusion pipeline not available.")
+        if not self.pipe:
+            logger.error("❌ Diffusion pipeline not available")
             return None
 
         try:
-            logger.info(f"Generating image with prompt: {prompt}")
+            logger.info(f"🎨 Generating image with prompt: {prompt}")
 
-            image: Image.Image = self.sd_pipeline(
-                prompt=prompt,
-                num_inference_steps=20,  # lower = faster & safer
-                guidance_scale=7.0
-            ).images[0]
+            result = self.pipe(
+                prompt,
+                num_inference_steps=1,   # turbo magic ⚡
+                guidance_scale=0.0,
+            )
 
-            buffered = io.BytesIO()
-            image.save(buffered, format="PNG")
+            image: Image.Image = result.images[0]
 
-            return base64.b64encode(buffered.getvalue()).decode()
+            buf = io.BytesIO()
+            image.save(buf, format="PNG")
+            return base64.b64encode(buf.getvalue()).decode()
 
         except torch.cuda.OutOfMemoryError:
-            logger.error("CUDA OOM - GPU memory exceeded")
+            logger.error("💥 CUDA OOM - GPU memory exceeded")
             return None
         except Exception:
-            logger.error("Stable Diffusion generation failed:\n" + traceback.format_exc())
+            logger.error("❌ Image generation failed:\n" + traceback.format_exc())
             return None
