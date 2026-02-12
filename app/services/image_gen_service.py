@@ -1,10 +1,10 @@
 """
-Advanced Image Generation Service
-=================================
+Image Generation Service
+========================
 - Mistral 7B Q4 (GPT4All) for prompt engineering
-- SD-Turbo for fast diffusion
-- GPU/CPU safe
-- Production-ready
+- SD-Turbo for fast image generation
+- FastAPI-safe singleton
+- GPU/CPU fallback
 """
 
 import logging
@@ -14,8 +14,8 @@ import traceback
 from typing import List, Optional
 
 import torch
-from diffusers import AutoPipelineForText2Image
 from PIL import Image
+from diffusers import AutoPipelineForText2Image
 
 try:
     from gpt4all import GPT4All
@@ -26,17 +26,23 @@ logger = logging.getLogger(__name__)
 
 
 class ImageGenerationService:
+    """
+    Singleton Image Generation Service
+    """
+
     _instance = None
 
     def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
+        if cls._instance is None:
+            cls._instance = super(ImageGenerationService, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self):
-        if hasattr(self, "_initialized"):
+    def __init__(self, settings=None):
+        # prevent re-init in FastAPI lifespan
+        if getattr(self, "_initialized", False):
             return
 
+        self.settings = settings
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.dtype = torch.float16 if self.device == "cuda" else torch.float32
 
@@ -45,13 +51,13 @@ class ImageGenerationService:
 
         self._initialized = True
 
-    # ---------------- INIT ---------------- #
+    # ---------------- INITIALIZATION ---------------- #
 
     def initialize(self):
-        if self.pipe and self.llm_model:
+        if self.llm_model is not None and self.pipe is not None:
             return
 
-        logger.info(f"🚀 Initializing Image Service on {self.device}")
+        logger.info(f"🚀 Initializing ImageGenerationService on {self.device}")
 
         self._load_llm()
         self._load_diffusion()
@@ -66,6 +72,7 @@ class ImageGenerationService:
 
             self.llm_model = GPT4All(
                 model_name,
+                allow_download=True,  # auto-download model
                 device="cuda" if self.device == "cuda" else "cpu",
             )
 
@@ -97,7 +104,7 @@ class ImageGenerationService:
             logger.error("❌ Failed to load SD-Turbo:\n" + traceback.format_exc())
             self.pipe = None
 
-    # ---------------- PROMPT ENGINE ---------------- #
+    # ---------------- PROMPT GENERATION ---------------- #
 
     def generate_prompt_from_context(self, history: List[dict]) -> str:
         self.initialize()
@@ -143,7 +150,7 @@ class ImageGenerationService:
 
             result = self.pipe(
                 prompt,
-                num_inference_steps=1,   # turbo magic ⚡
+                num_inference_steps=1,   # SD-Turbo speed
                 guidance_scale=0.0,
             )
 
