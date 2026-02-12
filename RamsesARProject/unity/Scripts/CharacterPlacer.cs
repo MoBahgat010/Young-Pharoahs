@@ -53,7 +53,7 @@ public class CharacterPlacer : MonoBehaviour
         GameObject scanObj = new GameObject("ScanningText");
         scanObj.transform.SetParent(canvasObj.transform, false);
         scanningText = scanObj.AddComponent<Text>();
-        scanningText.text = "Point your camera at a flat surface\u2026";
+        scanningText.text = "Press to Start\u2026";
         scanningText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         if (scanningText.font == null) scanningText.font = Font.CreateDynamicFontFromOSFont("Arial", 32);
         scanningText.fontSize = 32;
