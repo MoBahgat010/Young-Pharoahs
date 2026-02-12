@@ -10,6 +10,7 @@ export interface ConversationMessage {
   content: string;
   timestamp: string;
   audio_base64?: string;
+  image_urls?: string[];
 }
 
 // ── Chat Message (local UI state) ─────────────────────────────
@@ -23,6 +24,7 @@ export interface ChatMessage {
   voiceFilePath?: string;
   voiceDurationMs?: number;
   isLoadingTTS?: boolean;
+  generatedImageBase64?: string;
 }
 
 // ── Conversation List ─────────────────────────────────────────

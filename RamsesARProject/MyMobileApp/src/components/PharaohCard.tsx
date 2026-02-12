@@ -26,7 +26,10 @@ export function PharaohCard({pharaoh, onPress}: PharaohCardProps) {
       activeOpacity={0.8}
       onPress={() => onPress(pharaoh)}>
       {/* Background Image */}
-      <Image source={{uri: pharaoh.imageUrl}} style={styles.image} />
+      <Image
+        source={pharaoh.localImage ?? {uri: pharaoh.imageUrl}}
+        style={styles.image}
+      />
 
       {/* Gradient overlay */}
       <View style={styles.gradientOverlay} />

@@ -56,6 +56,7 @@ export function ConversationsListScreen({navigation}: Props) {
 
     try {
       const data = await fetchConversations(20);
+      console.log('[ConversationsList] Loaded conversations:', JSON.stringify(data.conversations, null, 2));
       setConversations(data.conversations ?? []);
     } catch (err: unknown) {
       console.error('[ConversationsList] Load failed:', err);
@@ -103,8 +104,10 @@ export function ConversationsListScreen({navigation}: Props) {
   }, []);
 
   const handleOpenChat = useCallback((convId: string) => {
+    const conv = conversations.find(c => c.conversation_id === convId);
+    console.log('[ConversationsList] Opening conversation:', JSON.stringify(conv, null, 2));
     navigation.navigate('Chat', {conversationId: convId});
-  }, [navigation]);
+  }, [navigation, conversations]);
 
   const handleNewChat = useCallback(() => {
     navigation.navigate('Chat', {});

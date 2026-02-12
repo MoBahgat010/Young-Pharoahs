@@ -54,7 +54,7 @@ export function KingsScreen({navigation}: Props) {
               style={styles.card}
               activeOpacity={0.8}
               onPress={() => handlePharaohPress(pharaoh)}>
-              <Image source={{uri: pharaoh.imageUrl}} style={styles.cardImage} />
+              <Image source={pharaoh.localImage ?? {uri: pharaoh.imageUrl}} style={styles.cardImage} />
               <View style={styles.cardOverlay} />
               <View style={styles.cardContent}>
                 <Text style={styles.cardName}>{pharaoh.name}</Text>

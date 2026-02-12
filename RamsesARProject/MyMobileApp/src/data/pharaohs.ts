@@ -1,3 +1,5 @@
+import type {ImageSourcePropType} from 'react-native';
+
 /**
  * Pharaoh data for the Home Screen carousel
  */
@@ -6,7 +8,8 @@ export interface Pharaoh {
   id: string;
   name: string;
   gender: 'male' | 'female';
-  imageUrl: string;
+  imageUrl?: string;
+  localImage?: ImageSourcePropType;
 }
 
 export const PHARAOHS: Pharaoh[] = [
@@ -42,8 +45,7 @@ export const PHARAOHS: Pharaoh[] = [
     id: 'hatshepsut',
     name: 'Hatshepsut',
     gender: 'female',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/7/7b/Seated_Statue_of_Hatshepsut_MET_Hatshepsut2012.jpg',
+    localImage: require('../assets/images/hatshepsut.jpg'),
   },
   {
     id: 'seti-i',

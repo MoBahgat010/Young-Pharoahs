@@ -49,6 +49,15 @@ export function MessageBubble({
         />
       )}
 
+      {/* AI-generated image */}
+      {message.generatedImageBase64 && (
+        <Image
+          source={{uri: `data:image/png;base64,${message.generatedImageBase64}`}}
+          style={styles.generatedImage}
+          resizeMode="contain"
+        />
+      )}
+
       {/* Message text */}
       <Text
         style={[
@@ -127,6 +136,13 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
+  },
+  generatedImage: {
+    width: SCREEN_WIDTH * 0.85 - Spacing.lg * 2,
+    height: 220,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.textWhite05,
   },
   ttsButton: {
     flexDirection: 'row',

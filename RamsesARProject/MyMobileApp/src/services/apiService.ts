@@ -39,6 +39,7 @@ export interface VoiceQueryResponse {
 
 export interface ImageDescriptionResponse {
   descriptions: string[];
+  image_urls: string[];
 }
 
 export interface Monument {
@@ -95,10 +96,14 @@ export async function sendTextQuery(
   imageDescriptions?: string[],
   gender: 'male' | 'female' = 'male',
   conversationId?: string | null,
+  imageUrls?: string[],
 ): Promise<QueryResponse> {
   const body: Record<string, unknown> = {prompt, gender};
   if (imageDescriptions && imageDescriptions.length > 0) {
     body.image_descriptions = imageDescriptions;
+  }
+  if (imageUrls && imageUrls.length > 0) {
+    body.image_urls = imageUrls;
   }
   if (conversationId) {
     body.conversation_id = conversationId;
@@ -296,6 +301,31 @@ export async function deleteConversation(
     const err = await res.text();
     throw new Error(`Delete conversation failed (${res.status}): ${err}`);
   }
+}
+
+// ── Image Generation ───────────────────────────────────────────
+
+export interface GenerateImageResponse {
+  conversation_id: string;
+  prompt_used: string;
+  image_base64: string;
+}
+
+export async function generateImage(
+  conversationId: string,
+): Promise<GenerateImageResponse> {
+  const res = await fetch(`${BASE_URL}/generate-image`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({conversation_id: conversationId}),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Image generation failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
 }
 
 // ── Monument Nearby Places ─────────────────────────────────────

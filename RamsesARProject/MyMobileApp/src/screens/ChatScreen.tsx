@@ -16,11 +16,11 @@ import {
   Image,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {ArrowLeft, Camera, ImageIcon, Mic, Send, Square, Trash2, MapPin, ChevronUp, ChevronDown} from 'lucide-react-native';
+import {ArrowLeft, Camera, ImageIcon, Mic, Send, Square, Trash2, MapPin, ChevronUp, ChevronDown, Sparkles} from 'lucide-react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../../App';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
-import {sendTextQuery, sendVoiceQuery, sendTTS, describeImages, fetchPharaohMonuments, fetchConversation} from '../services/apiService';
+import {sendTextQuery, sendVoiceQuery, sendTTS, describeImages, fetchPharaohMonuments, fetchConversation, generateImage} from '../services/apiService';
 import type {Monument} from '../services/apiService';
 import {stopAudio, startRecording, stopRecording} from '../services/voiceService';
 import {takePhoto, pickFromGallery, type PickedImage} from '../services/imageService';
@@ -52,6 +52,7 @@ export function ChatScreen({navigation, route}: Props) {
   const [recordingTime, setRecordingTime] = useState(0);
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -132,12 +133,15 @@ export function ChatScreen({navigation, route}: Props) {
       setError(null);
       fetchConversation(resumeConvId)
         .then(data => {
+          console.log('[Chat] Opened conversation', resumeConvId, '— full contents:', JSON.stringify(data, null, 2));
           const restored: ChatMessage[] = data.messages.map(m => ({
             id: nextMsgId(),
             role: m.role,
             text: m.content,
             audioBase64: m.audio_base64,
+            imageUri: m.image_urls?.[0],
           }));
+          console.log('[Chat] Restored messages:', JSON.stringify(restored, null, 2));
           setMessages(restored);
           scrollToBottom();
         })
@@ -182,9 +186,11 @@ export function ChatScreen({navigation, route}: Props) {
         setMessages([{id: nextMsgId(), role: 'user', text: queryText, imageUri}]);
 
         const descResult = await describeImages([imageUri]);
+        console.log('[Chat] describe-images response:', JSON.stringify(descResult, null, 2));
         const descriptions = descResult.descriptions;
+        const imageUrls = descResult.image_urls;
 
-        const result = await sendTextQuery(queryText, descriptions, currentGender, conversationIdRef.current);
+        const result = await sendTextQuery(queryText, descriptions, currentGender, conversationIdRef.current, imageUrls);
         captureConversationId(result.conversation_id);
 
         setMessages(prev => [
@@ -240,12 +246,15 @@ export function ChatScreen({navigation, route}: Props) {
 
     try {
       let descriptions: string[] | undefined;
+      let imageUrls: string[] | undefined;
       if (userImageUri) {
         const descResult = await describeImages([userImageUri]);
+        console.log('[Chat] describe-images response:', JSON.stringify(descResult, null, 2));
         descriptions = descResult.descriptions;
+        imageUrls = descResult.image_urls;
       }
 
-      const result = await sendTextQuery(userText, descriptions, currentGender, conversationIdRef.current);
+      const result = await sendTextQuery(userText, descriptions, currentGender, conversationIdRef.current, imageUrls);
       captureConversationId(result.conversation_id);
 
       setMessages(prev => [...prev, {id: nextMsgId(), role: 'assistant', text: result.answer, audioBase64: result.audio_base64 ?? undefined}]);
@@ -347,6 +356,60 @@ export function ChatScreen({navigation, route}: Props) {
     }
   }, [playingIndex]);
 
+  // ── Generate Image handler ──────────────────────────────────
+  const handleGenerateImage = useCallback(async () => {
+    const convId = conversationIdRef.current;
+    if (!convId) {
+      Alert.alert('No Conversation', 'Start a conversation first before generating an image.');
+      return;
+    }
+    if (messages.length === 0) {
+      Alert.alert('Empty Chat', 'Send a message first so the AI has context to visualize.');
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    // Add a placeholder message while generating
+    const placeholderId = nextMsgId();
+    setMessages(prev => [...prev, {
+      id: placeholderId,
+      role: 'assistant',
+      text: '🎨 Generating a cinematic Ancient Egypt scene...',
+      isLoadingTTS: true, // reuse loading indicator
+    }]);
+    scrollToBottom();
+
+    try {
+      const result = await generateImage(convId);
+      console.log('[Chat] Image generated — prompt:', result.prompt_used);
+
+      // Replace placeholder with the generated image message
+      setMessages(prev => prev.map(m =>
+        m.id === placeholderId
+          ? {
+              ...m,
+              text: `🎨 ${result.prompt_used}`,
+              generatedImageBase64: result.image_base64,
+              isLoadingTTS: false,
+            }
+          : m,
+      ));
+      scrollToBottom();
+    } catch (err: unknown) {
+      console.error('[Chat] Image generation error:', err);
+      const errMsg = err instanceof Error ? err.message : 'Image generation failed';
+      // Replace placeholder with error
+      setMessages(prev => prev.map(m =>
+        m.id === placeholderId
+          ? {...m, text: `🎨 Error: ${errMsg}`, isLoadingTTS: false}
+          : m,
+      ));
+      Alert.alert('Image Generation Error', errMsg);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  }, [messages]);
+
   // ── TTS play button handler ─────────────────────────────────
   const handlePlayTTS = useCallback(async (messageId: string) => {
     // Mark message as loading TTS
@@ -394,7 +457,17 @@ export function ChatScreen({navigation, route}: Props) {
               <Text style={styles.headerSubtitle}>{pharaohName}</Text>
             )}
           </View>
-          <View style={styles.backButton} />
+          <TouchableOpacity
+            style={[styles.backButton, !conversationId && {opacity: 0.3}]}
+            onPress={handleGenerateImage}
+            activeOpacity={0.7}
+            disabled={!conversationId || isGeneratingImage}>
+            {isGeneratingImage ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <Sparkles size={22} color={Colors.primary} />
+            )}
+          </TouchableOpacity>
         </View>
 
         <KeyboardAvoidingView

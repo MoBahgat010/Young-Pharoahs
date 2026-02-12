@@ -68,9 +68,9 @@ export function LocationsScreen() {
 
   // King image lookup from pharaohs data
   const kingImageMap = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, any> = {};
     for (const p of PHARAOHS) {
-      map[p.name] = p.imageUrl;
+      map[p.name] = p.localImage ?? (p.imageUrl ? {uri: p.imageUrl} : undefined);
     }
     return map;
   }, []);
@@ -106,7 +106,7 @@ export function LocationsScreen() {
             contentContainerStyle={styles.filterRow}>
             {kingNames.map(king => {
               const active = king === selectedKing;
-              const avatarUri = king !== 'All' ? kingImageMap[king] : undefined;
+              const avatarSource = king !== 'All' ? kingImageMap[king] : undefined;
               return (
                 <TouchableOpacity
                   key={king}
@@ -114,9 +114,9 @@ export function LocationsScreen() {
                   activeOpacity={0.7}
                   onPress={() => setSelectedKing(king)}>
                   <View style={[styles.filterCircle, active && styles.filterCircleActive]}>
-                    {avatarUri ? (
+                    {avatarSource ? (
                       <Image
-                        source={{uri: avatarUri}}
+                        source={avatarSource}
                         style={styles.filterAvatar}
                         resizeMode="cover"
                       />
