@@ -25,6 +25,7 @@ from app.services import (
     PlacesService,
     UberService,
     ConversationService,
+    CloudinaryService,
 )
 from app.utils.image import upload_files_to_pil_images, validate_image_count
 from app.utils.prompt import (
@@ -56,6 +57,7 @@ class ServiceContainer:
         places_service: Optional[PlacesService] = None,
         uber_service: Optional[UberService] = None,
         conversation_service: Optional[ConversationService] = None,
+        cloudinary_service: Optional[CloudinaryService] = None,
     ):
         self.embedding_service = embedding_service
         self.vision_service = vision_service
@@ -69,6 +71,7 @@ class ServiceContainer:
         self.places_service = places_service
         self.uber_service = uber_service
         self.conversation_service = conversation_service
+        self.cloudinary_service = cloudinary_service
 
 
 # Global service container (set by main app during startup)
@@ -126,7 +129,16 @@ async def describe_images(
         image_descriptions = await services.vision_service.describe_images_batch(pil_images)
         logger.info(f"Generated {len(image_descriptions)} image descriptions")
         
-        return ImageDescriptionResponse(descriptions=image_descriptions)
+        # Upload images to Cloudinary in parallel (if service enabled)
+        image_urls = []
+        if services.cloudinary_service:
+            image_urls = await services.cloudinary_service.upload_images_batch(pil_images)
+            logger.info(f"Uploaded {len(image_urls)} images to Cloudinary")
+            
+        return ImageDescriptionResponse(
+            descriptions=image_descriptions,
+            image_urls=image_urls
+        )
 
     except ValueError as e:
         logger.error(f"Image validation error: {e}")
@@ -156,14 +168,12 @@ async def query_rag(
     """
     prompt = request.prompt
     image_descriptions = request.image_descriptions
+    image_urls = request.image_urls
     gender = request.gender
     tts_provider = request.tts_provider
     tts_model = request.tts_model
     conversation_id = request.conversation_id
 
-    logger.info("gender: ", gender)
-    logger.info("tts_provider: ", tts_provider)
-    logger.info("tts_model: ", tts_model)
     logger.info(f"Received query: '{prompt[:100]}...'")
     
     # Validate inputs
@@ -186,8 +196,13 @@ async def query_rag(
             # Start new conversation
             conversation_id = await services.conversation_service.create_conversation()
         
-        # Store user message
-        await services.conversation_service.add_message(conversation_id, "user", prompt)
+        # Store user message with image URLs
+        await services.conversation_service.add_message(
+            conversation_id, 
+            "user", 
+            prompt,
+            image_urls=image_urls
+        )
     
     # ── Query Rewriting ─────────────────────────────────────────────────────
     rewritten_query = services.llm_service.rewrite_query(prompt, history)

@@ -78,6 +78,7 @@ class ConversationService:
         role: str,
         content: str,
         audio_base64: str | None = None,
+        image_urls: list[str] | None = None,
     ) -> None:
         """
         Append a message to the conversation.
@@ -87,6 +88,7 @@ class ConversationService:
             role: 'user' or 'assistant'.
             content: The message text.
             audio_base64: Optional base64-encoded TTS audio.
+            image_urls: Optional list of image URLs.
         """
         now = datetime.now(timezone.utc)
 
@@ -97,6 +99,8 @@ class ConversationService:
         }
         if audio_base64 is not None:
             message["audio_base64"] = audio_base64
+        if image_urls:
+            message["image_urls"] = image_urls
 
         result = await self.collection.update_one(
             {"conversation_id": conversation_id},

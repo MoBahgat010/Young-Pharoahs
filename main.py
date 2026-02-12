@@ -29,6 +29,7 @@ from app.services import (
     PlacesService,
     UberService,
     ConversationService,
+    CloudinaryService,
 )
 from app.routers import (
     query_router,
@@ -115,6 +116,13 @@ async def lifespan(app: FastAPI):
         conversation_service = ConversationService(settings, database_service)
         logger.info("Conversation service initialized")
         
+        # 13. Cloudinary Service
+        logger.info("13. Initializing CloudinaryService ...")
+        cloudinary_service = CloudinaryService(settings)
+        # Initialization happens lazily on first use, or we can force it here if we want to check creds early
+        # cloudinary_service._initialize() 
+        logger.info("Cloudinary service prepared")
+        
         # Create service container and inject into routers
         container = ServiceContainer(
             embedding_service=embedding_service,
@@ -129,6 +137,7 @@ async def lifespan(app: FastAPI):
             places_service=places_service,
             uber_service=uber_service,
             conversation_service=conversation_service,
+            cloudinary_service=cloudinary_service,
         )
         set_service_container(container)
         

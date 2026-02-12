@@ -29,6 +29,11 @@ class QueryRequest(BaseModel):
         None,
         description="Optional list of image descriptions"
     )
+
+    image_urls: Optional[list[str]] = Field(
+        None,
+        description="Optional list of image URLs (uploaded to Cloudinary)"
+    )
     
     # Conversation memory
     conversation_id: Optional[str] = Field(

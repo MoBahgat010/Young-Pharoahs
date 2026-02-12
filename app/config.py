@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     # ── Uber Configuration ──────────────────────────────────────────────────
     uber_credentials_file: str = "uber_credentials.json"
     
+    # ── Cloudinary Configuration ────────────────────────────────────────────
+    cloudinary_cloud_name: str | None = Field(default=None, alias="CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key: str | None = Field(default=None, alias="CLOUDINARY_API_KEY")
+    cloudinary_api_secret: str | None = Field(default=None, alias="CLOUDINARY_API_SECRET")
+    
     def validate_api_keys(self) -> None:
         """Validate that required API keys are present."""
         if not self.pinecone_api_key:

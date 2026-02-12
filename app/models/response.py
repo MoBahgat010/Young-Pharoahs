@@ -149,4 +149,5 @@ class ErrorResponse(BaseModel):
 class ImageDescriptionResponse(BaseModel):
     """Response model for image description endpoint."""
     descriptions: List[str] = Field(..., description="List of image descriptions")
+    image_urls: List[str] = Field(default_factory=list, description="List of Cloudinary image URLs")
 
