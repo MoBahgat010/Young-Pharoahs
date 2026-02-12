@@ -26,6 +26,7 @@ from app.services import (
     UberService,
     ConversationService,
     CloudinaryService,
+    ImageGenerationService,
 )
 from app.utils.image import upload_files_to_pil_images, validate_image_count
 from app.utils.prompt import (
@@ -58,6 +59,7 @@ class ServiceContainer:
         uber_service: Optional[UberService] = None,
         conversation_service: Optional[ConversationService] = None,
         cloudinary_service: Optional[CloudinaryService] = None,
+        image_gen_service: Optional[ImageGenerationService] = None,
     ):
         self.embedding_service = embedding_service
         self.vision_service = vision_service
@@ -72,6 +74,7 @@ class ServiceContainer:
         self.uber_service = uber_service
         self.conversation_service = conversation_service
         self.cloudinary_service = cloudinary_service
+        self.image_gen_service = image_gen_service
 
 
 # Global service container (set by main app during startup)
@@ -347,3 +350,52 @@ async def synthesize_speech(
         tts_provider=provider_used,
         tts_model=model_used
     )
+
+
+@router.post(
+    "/generate-image",
+    summary="Generate an image from conversation context",
+    description="Uses GPT4All to summarize conversation history into a prompt, then Stable Diffusion to generate an image.",
+    dependencies=[]
+)
+async def generate_image(
+    conversation_id: str = Form(..., description="Conversation ID to derive context from"),
+    services: ServiceContainer = Depends(get_services),
+):
+    """
+    Generate an image based on the current conversation context.
+    """
+    # 1. Get history
+    history = []
+    if services.conversation_service:
+        history = await services.conversation_service.get_history(conversation_id, limit=10)
+    
+    if not history:
+        logger.warning(f"No history found for {conversation_id}, using default prompt")
+        # Ensure we have at least something if history is empty
+        history = [{"role": "user", "content": "Ancient Egypt Pharaoh"}]
+
+    if not services.image_gen_service:
+        raise HTTPException(status_code=501, detail="Image generation service not available")
+
+    # 2. Generate prompt
+    try:
+        prompt = services.image_gen_service.generate_prompt_from_context(history)
+    except Exception as e:
+        logger.error(f"Prompt generation failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate image prompt")
+    
+    # 3. Generate image
+    try:
+        image_base64 = services.image_gen_service.generate_image(prompt)
+        if not image_base64:
+             raise HTTPException(status_code=500, detail="Stable Diffusion failed to generate image")
+    except Exception as e:
+        logger.error(f"Image generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
+
+    return {
+        "conversation_id": conversation_id,
+        "prompt_used": prompt,
+        "image_base64": image_base64
+    }

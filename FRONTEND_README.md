@@ -282,6 +282,39 @@ GET /pharaohs/{king_name}/monuments/{monument_name}/nearby   # Nearby places
 
 ---
 
+    }
+  ]
+}
+
+---
+
+### 8. Image Generation (NEW)
+
+Generate a scene based on the current conversation context.
+
+```http
+POST /generate-image
+Content-Type: application/x-www-form-urlencoded
+```
+
+| Field             | Type   | Required | Description                              |
+| ----------------- | ------ | -------- | ---------------------------------------- |
+| `conversation_id` | string | ✅       | ID of the conversation to visualize      |
+
+**Response:**
+
+```json
+{
+  "conversation_id": "abc-123",
+  "prompt_used": "A hyperrealistic photo of a golden throne room with hieroglyphs...",
+  "image_base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+}
+```
+
+> **Note:** The backend uses **GPT4All** (local LLM) to summarize the chat history into a visual prompt, then **Stable Diffusion** to generate the image. This process may take 10-20 seconds on GPU.
+
+---
+
 ### 7. Auth
 
 ```http

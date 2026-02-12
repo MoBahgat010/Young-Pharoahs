@@ -30,6 +30,7 @@ from app.services import (
     UberService,
     ConversationService,
     CloudinaryService,
+    ImageGenerationService,
 )
 from app.routers import (
     query_router,
@@ -123,6 +124,12 @@ async def lifespan(app: FastAPI):
         # cloudinary_service._initialize() 
         logger.info("Cloudinary service prepared")
         
+        # 14. Image Generation Service
+        logger.info("14. Initializing ImageGenerationService ...")
+        image_gen_service = ImageGenerationService(settings)
+        # Initialization happens lazily
+        logger.info("Image generation service prepared")
+
         # Create service container and inject into routers
         container = ServiceContainer(
             embedding_service=embedding_service,
@@ -138,6 +145,7 @@ async def lifespan(app: FastAPI):
             uber_service=uber_service,
             conversation_service=conversation_service,
             cloudinary_service=cloudinary_service,
+            image_gen_service=image_gen_service,
         )
         set_service_container(container)
         
