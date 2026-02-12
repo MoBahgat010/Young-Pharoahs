@@ -29,7 +29,6 @@ class ImageGenerationService:
     """
     Singleton Image Generation Service
     """
-
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -51,7 +50,6 @@ class ImageGenerationService:
 
         self._initialized = True
 
-    # ---------------- INITIALIZATION ---------------- #
 
     def initialize(self):
         if self.llm_model is not None and self.pipe is not None:
@@ -104,22 +102,19 @@ class ImageGenerationService:
             logger.error("❌ Failed to load SD-Turbo:\n" + traceback.format_exc())
             self.pipe = None
 
-    # ---------------- PROMPT GENERATION ---------------- #
 
     def generate_prompt_from_context(self, history: List[dict]) -> str:
         self.initialize()
 
-        # Fallback logic if LLM is unavailable or fails
         fallback_prompt = "cinematic ancient egypt scene, ultra detailed, 8k, dramatic lighting"
         
         # Try to extract the last user message to make the fallback relevant
         last_user_msg = next((msg["content"] for msg in reversed(history) if msg.get("role") == "user"), None)
         if last_user_msg:
-             # Basic prompt engineering without LLM
              fallback_prompt = f"{last_user_msg}, cinematic, ancient egypt style, hyperrealistic, 8k, dramatic lighting, detailed"
 
         if not self.llm_model:
-            logger.warning(f"⚠️ LLM not loaded, using fallback prompt: {fallback_prompt}")
+            logger.warning(f"LLM not loaded, using fallback prompt: {fallback_prompt}")
             return fallback_prompt
 
         context = "\n".join(
@@ -142,24 +137,23 @@ class ImageGenerationService:
             return prompt.strip().replace('"', "")
 
         except Exception:
-            logger.error("❌ Prompt generation failed:\n" + traceback.format_exc())
+            logger.error("Prompt generation failed:\n" + traceback.format_exc())
             return fallback_prompt
 
-    # ---------------- IMAGE GENERATION ---------------- #
 
     def generate_image(self, prompt: str) -> Optional[str]:
         self.initialize()
 
         if not self.pipe:
-            logger.error("❌ Diffusion pipeline not available")
+            logger.error("Diffusion pipeline not available")
             return None
 
         try:
-            logger.info(f"🎨 Generating image with prompt: {prompt}")
+            logger.info(f"Generating image with prompt: {prompt}")
 
             result = self.pipe(
                 prompt,
-                num_inference_steps=1,   # SD-Turbo speed
+                num_inference_steps=1,
                 guidance_scale=0.0,
             )
 
@@ -170,8 +164,8 @@ class ImageGenerationService:
             return base64.b64encode(buf.getvalue()).decode()
 
         except torch.cuda.OutOfMemoryError:
-            logger.error("💥 CUDA OOM - GPU memory exceeded")
+            logger.error("CUDA OOM - GPU memory exceeded")
             return None
         except Exception:
-            logger.error("❌ Image generation failed:\n" + traceback.format_exc())
+            logger.error("Image generation failed:\n" + traceback.format_exc())
             return None
