@@ -34,6 +34,7 @@ public class CharacterPlacer : MonoBehaviour
     private float logTimer = 0f;
     private float timeSinceStart = 0f;
     private string activeMethod = "";
+    private string pendingAudioUrl = "";
 
     // Instruction UI (created programmatically)
     private Canvas instructionCanvas;
@@ -336,6 +337,14 @@ public class CharacterPlacer : MonoBehaviour
         AudioController audioController = placedCharacter.GetComponent<AudioController>();
         if (audioController == null)
             audioController = placedCharacter.AddComponent<AudioController>();
+        
+        // Pass the dynamic audio URL from React Native (if any)
+        if (!string.IsNullOrEmpty(pendingAudioUrl))
+        {
+            Debug.Log($"CharacterPlacer: Setting dynamic audio URL on instance: {pendingAudioUrl}");
+            audioController.SetAudioUrl(pendingAudioUrl);
+        }
+        
         audioController.onAudioComplete = () =>
         {
             Debug.Log("CharacterPlacer: Narration finished — notifying RN to close");
@@ -348,6 +357,12 @@ public class CharacterPlacer : MonoBehaviour
     {
         characterPrefab = prefab;
         Debug.Log($"CharacterPlacer: Prefab set to {(prefab != null ? prefab.name : "NULL")}");
+    }
+    
+    public void SetAudioUrl(string url)
+    {
+        pendingAudioUrl = url ?? "";
+        Debug.Log($"CharacterPlacer: Audio URL queued: {pendingAudioUrl}");
     }
     
     public void ResetCharacter()

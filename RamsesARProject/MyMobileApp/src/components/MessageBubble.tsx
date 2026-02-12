@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import {Volume2} from 'lucide-react-native';
+import {Volume2, Box} from 'lucide-react-native';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
 import {VoiceMessageBubble} from './VoiceMessageBubble';
 import type {ChatMessage} from '../types/conversation';
@@ -21,6 +21,7 @@ interface MessageBubbleProps {
   isGloballyPlaying: boolean;
   onPlayStateChange: (index: number, playing: boolean) => void;
   onPlayTTS: (messageId: string) => void;
+  onPlayInAR?: (messageId: string) => void;
 }
 
 export function MessageBubble({
@@ -29,10 +30,11 @@ export function MessageBubble({
   isGloballyPlaying,
   onPlayStateChange,
   onPlayTTS,
+  onPlayInAR,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
+  const isAssistant = message.role === 'assistant';
   const hasAudio = !!(message.voiceFilePath || message.audioBase64);
-  const isAssistantText = message.role === 'assistant' && !hasAudio;
 
   return (
     <View
@@ -79,22 +81,45 @@ export function MessageBubble({
         />
       )}
 
-      {/* TTS play button for text-only assistant messages */}
-      {isAssistantText && (
-        <TouchableOpacity
-          style={styles.ttsButton}
-          onPress={() => onPlayTTS(message.id)}
-          activeOpacity={0.7}
-          disabled={message.isLoadingTTS}>
-          {message.isLoadingTTS ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
-          ) : (
-            <>
-              <Volume2 size={14} color={Colors.primary} />
-              <Text style={styles.ttsButtonText}>Play</Text>
-            </>
+      {/* Action buttons for assistant messages */}
+      {isAssistant && (
+        <View style={styles.actionRow}>
+          {/* Voice / TTS button — hidden once audio is loaded */}
+          {!hasAudio && (
+            <TouchableOpacity
+              style={styles.ttsButton}
+              onPress={() => onPlayTTS(message.id)}
+              activeOpacity={0.7}
+              disabled={message.isLoadingTTS}>
+              {message.isLoadingTTS ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <>
+                  <Volume2 size={14} color={Colors.primary} />
+                  <Text style={styles.ttsButtonText}>Voice</Text>
+                </>
+              )}
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+
+          {/* AR button — always visible */}
+          {onPlayInAR && (
+            <TouchableOpacity
+              style={styles.arButton}
+              onPress={() => onPlayInAR(message.id)}
+              activeOpacity={0.7}
+              disabled={message.isLoadingAR}>
+              {message.isLoadingAR ? (
+                <ActivityIndicator size="small" color="#D4AF37" />
+              ) : (
+                <>
+                  <Box size={14} color="#D4AF37" />
+                  <Text style={styles.arButtonText}>AR</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </View>
   );
@@ -148,15 +173,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: Spacing.sm,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.textWhite05,
-    alignSelf: 'flex-start',
   },
   ttsButtonText: {
     color: Colors.primary,
+    fontSize: FontSizes.xs,
+    fontWeight: '600',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  arButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+  },
+  arButtonText: {
+    color: '#D4AF37',
     fontSize: FontSizes.xs,
     fontWeight: '600',
   },

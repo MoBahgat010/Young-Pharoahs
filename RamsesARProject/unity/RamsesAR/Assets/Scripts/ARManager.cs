@@ -79,13 +79,9 @@ public class ARManager : MonoBehaviour
             
             if (prefab != null && characterPlacer != null)
             {
-                // Configure the prefab's AudioController with the URL
-                AudioController audioController = prefab.GetComponent<AudioController>();
-                if (audioController != null)
-                {
-                    audioController.SetAudioUrl(data.audioUrl);
-                }
-                
+                // Pass audio URL to CharacterPlacer so it can set it
+                // on the instantiated character (not the prefab asset)
+                characterPlacer.SetAudioUrl(data.audioUrl);
                 characterPlacer.SetCharacterPrefab(prefab);
             }
             

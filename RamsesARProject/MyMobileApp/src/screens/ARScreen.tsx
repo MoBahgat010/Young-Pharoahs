@@ -9,16 +9,37 @@ import {
   Alert,
 } from 'react-native';
 import UnityView from '@azesmway/react-native-unity';
+import {useRoute, useNavigation} from '@react-navigation/native';
+import type {RouteProp} from '@react-navigation/native';
+import type {TabParamList} from '../../App';
+
+type ARTabRoute = RouteProp<TabParamList, 'ARTab'>;
 
 const ARScreen = () => {
+  const route = useRoute<ARTabRoute>();
+  const navigation = useNavigation();
+  const {
+    characterId: paramCharacterId,
+    audioFilePath,
+    autoLaunch,
+    returnToChat,
+  } = route.params ?? {};
+
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [showUnity, setShowUnity] = useState(false);
   const unityRef = useRef<UnityView>(null);
+  const hasAutoLaunched = useRef(false);
+  const audioFilePathRef = useRef<string | undefined>(audioFilePath);
 
-  const sendCharacterToUnity = useCallback((characterId: string) => {
+  // Keep ref in sync
+  useEffect(() => {
+    audioFilePathRef.current = audioFilePath;
+  }, [audioFilePath]);
+
+  const sendCharacterToUnity = useCallback((characterId: string, audioUrl?: string) => {
     const data = {
       characterId: characterId,
-      audioUrl: '',
+      audioUrl: audioUrl || '',
     };
     console.log('Sending LoadCharacter to Unity:', data);
     unityRef.current?.postMessage(
@@ -33,9 +54,11 @@ const ARScreen = () => {
     console.log('Received message from Unity:', message);
 
     if (message === 'unity_ready') {
-      if (selectedCharacter) {
-        sendCharacterToUnity(selectedCharacter);
-      }
+      const charId = selectedCharacter || 'cat_pharaoh__king';
+      const audioUrl = audioFilePathRef.current
+        ? `file://${audioFilePathRef.current}`
+        : '';
+      sendCharacterToUnity(charId, audioUrl);
     } else if (message === 'character_loaded') {
       console.log('Character loaded successfully');
     } else if (message === 'character_placed') {
@@ -44,19 +67,39 @@ const ARScreen = () => {
       console.log('Narration finished — returning to RN');
       setShowUnity(false);
       setSelectedCharacter(null);
-    }
-  }, [selectedCharacter, sendCharacterToUnity]);
 
-  // Safety timeout: auto-close Unity after 65s (audio is ~52s + buffer)
+      // Clear the auto-launch params so re-visiting the tab doesn't re-trigger
+      navigation.setParams({
+        audioFilePath: undefined,
+        autoLaunch: undefined,
+        returnToChat: undefined,
+      } as any);
+
+      // Navigate back to chat if launched from chat
+      if (returnToChat) {
+        const parent = navigation.getParent();
+        if (parent) {
+          parent.goBack();
+        }
+      }
+    }
+  }, [selectedCharacter, sendCharacterToUnity, navigation, returnToChat]);
+
+  // Auto-launch when navigated from chat with params
   useEffect(() => {
-    if (!showUnity) return;
-    const timer = setTimeout(() => {
-      console.warn('AR safety timeout — returning to RN');
-      setShowUnity(false);
-      setSelectedCharacter(null);
-    }, 65000);
-    return () => clearTimeout(timer);
-  }, [showUnity]);
+    if (autoLaunch && !hasAutoLaunched.current) {
+      hasAutoLaunched.current = true;
+      const charId = paramCharacterId || 'cat_pharaoh__king';
+      openUnity(charId);
+    }
+  }, [autoLaunch, paramCharacterId]);
+
+  // Reset auto-launch flag when params are cleared
+  useEffect(() => {
+    if (!autoLaunch) {
+      hasAutoLaunched.current = false;
+    }
+  }, [autoLaunch]);
 
   const openUnity = async (characterId: string) => {
     setSelectedCharacter(characterId);
@@ -86,18 +129,33 @@ const ARScreen = () => {
       }
     }
 
-    // Mounting UnityView starts Unity
     setShowUnity(true);
 
-    // If Unity is already mounted and ready, send immediately
     if (unityRef.current) {
-      sendCharacterToUnity(characterId);
+      const audioUrl = audioFilePathRef.current
+        ? `file://${audioFilePathRef.current}`
+        : '';
+      sendCharacterToUnity(characterId, audioUrl);
     }
   };
 
   const closeUnity = () => {
     setShowUnity(false);
     setSelectedCharacter(null);
+
+    // Clear auto-launch params
+    navigation.setParams({
+      audioFilePath: undefined,
+      autoLaunch: undefined,
+      returnToChat: undefined,
+    } as any);
+
+    if (returnToChat) {
+      const parent = navigation.getParent();
+      if (parent) {
+        parent.goBack();
+      }
+    }
   };
 
   if (showUnity) {

@@ -38,6 +38,9 @@ export type TabParamList = {
   ARTab: {
     characterId?: string;
     characterName?: string;
+    audioFilePath?: string;
+    autoLaunch?: boolean;
+    returnToChat?: boolean;
   };
 };
 

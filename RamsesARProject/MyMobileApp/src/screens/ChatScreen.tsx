@@ -22,7 +22,7 @@ import type {RootStackParamList} from '../../App';
 import {Colors, FontSizes, Spacing, BorderRadius} from '../constants/DesignTokens';
 import {sendTextQuery, sendVoiceQuery, sendTTS, describeImages, fetchPharaohMonuments, fetchConversation, generateImage} from '../services/apiService';
 import type {Monument} from '../services/apiService';
-import {stopAudio, startRecording, stopRecording} from '../services/voiceService';
+import {stopAudio, startRecording, stopRecording, writeBase64ToFile} from '../services/voiceService';
 import {takePhoto, pickFromGallery, type PickedImage} from '../services/imageService';
 import {MessageBubble} from '../components/MessageBubble';
 import type {ChatMessage} from '../types/conversation';
@@ -65,6 +65,18 @@ export function ChatScreen({navigation, route}: Props) {
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
+
+  // ── Stop audio on screen leave or unmount ──────────────────
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      stopAudio();
+      setPlayingIndex(null);
+    });
+    return () => {
+      unsubscribe();
+      stopAudio();
+    };
+  }, [navigation]);
 
   // Helper to capture conversation_id from API responses
   const captureConversationId = useCallback((id?: string | null) => {
@@ -439,6 +451,58 @@ export function ChatScreen({navigation, route}: Props) {
     }
   }, [messages, currentGender]);
 
+  // ── AR play button handler ──────────────────────────────────
+  const handlePlayInAR = useCallback(async (messageId: string) => {
+    // Mark message as loading AR
+    setMessages(prev => prev.map(m =>
+      m.id === messageId ? {...m, isLoadingAR: true} : m,
+    ));
+
+    try {
+      const msg = messages.find(m => m.id === messageId);
+      if (!msg) { return; }
+
+      // Get audio — reuse existing base64 or fetch TTS
+      let audioBase64 = msg.audioBase64;
+      if (!audioBase64) {
+        console.log('[Chat] Fetching TTS for AR playback...');
+        const ttsResult = await sendTTS(msg.text, conversationIdRef.current, currentGender);
+        audioBase64 = ttsResult.audio_base64;
+
+        // Also save it on the message so the Voice button can reuse it
+        setMessages(prev => prev.map(m =>
+          m.id === messageId ? {...m, audioBase64: audioBase64} : m,
+        ));
+      }
+
+      // Write audio to a local file Unity can access
+      const filePath = await writeBase64ToFile(audioBase64, `ar_tts_${Date.now()}.mp3`);
+      console.log('[Chat] Audio written for AR:', filePath);
+
+      // Clear loading state
+      setMessages(prev => prev.map(m =>
+        m.id === messageId ? {...m, isLoadingAR: false} : m,
+      ));
+
+      // Navigate to AR tab with auto-launch
+      navigation.navigate('MainTabs', {
+        screen: 'ARTab',
+        params: {
+          audioFilePath: filePath,
+          autoLaunch: true,
+          returnToChat: true,
+        },
+      } as any);
+    } catch (err: unknown) {
+      console.error('[Chat] AR play error:', err);
+      setMessages(prev => prev.map(m =>
+        m.id === messageId ? {...m, isLoadingAR: false} : m,
+      ));
+      const errMsg = err instanceof Error ? err.message : 'Failed to prepare AR audio';
+      Alert.alert('AR Error', errMsg);
+    }
+  }, [messages, currentGender, navigation]);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -501,6 +565,7 @@ export function ChatScreen({navigation, route}: Props) {
                 isGloballyPlaying={playingIndex === idx}
                 onPlayStateChange={handleVoiceBubblePlayChange}
                 onPlayTTS={handlePlayTTS}
+                onPlayInAR={handlePlayInAR}
               />
           ))}
 

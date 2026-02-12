@@ -85,8 +85,14 @@ public class AudioController : MonoBehaviour
         if (hardcodedClip == null)
             hardcodedClip = Resources.Load<AudioClip>("Audio/response_audio");
         
-        // Priority: hardcoded clip > already-assigned clip > URL download
-        if (hardcodedClip != null)
+        // Priority: dynamic URL/file > hardcoded clip > already-assigned clip
+        // This ensures TTS audio from chat takes precedence over the default narration
+        if (!string.IsNullOrEmpty(currentAudioUrl))
+        {
+            Debug.Log($"AudioController: Playing dynamic audio from {currentAudioUrl}");
+            StartCoroutine(LoadAndPlayAudio(currentAudioUrl));
+        }
+        else if (hardcodedClip != null)
         {
             audioSource.clip = hardcodedClip;
             audioSource.Play();
@@ -98,10 +104,6 @@ public class AudioController : MonoBehaviour
             audioSource.Play();
             Debug.Log("AudioController: Playing assigned clip");
             StartCoroutine(WaitForAudioComplete());
-        }
-        else if (!string.IsNullOrEmpty(currentAudioUrl))
-        {
-            StartCoroutine(LoadAndPlayAudio(currentAudioUrl));
         }
         else
         {
@@ -117,9 +119,15 @@ public class AudioController : MonoBehaviour
         if (isLoading) yield break;
         isLoading = true;
         
-        Debug.Log($"AudioController: Loading audio from {url}");
+        // Determine audio type from extension
+        AudioType audioType = AudioType.MPEG;
+        if (url.Contains(".wav")) audioType = AudioType.WAV;
+        else if (url.Contains(".ogg")) audioType = AudioType.OGGVORBIS;
         
-        using (UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.MPEG))
+        bool isLocalFile = url.StartsWith("file://") || url.StartsWith("/");
+        Debug.Log($"AudioController: Loading {(isLocalFile ? "local" : "remote")} audio from {url} (type={audioType})");
+        
+        using (UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip(url, audioType))
         {
             yield return request.SendWebRequest();
             

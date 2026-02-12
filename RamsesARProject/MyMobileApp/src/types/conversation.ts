@@ -24,6 +24,7 @@ export interface ChatMessage {
   voiceFilePath?: string;
   voiceDurationMs?: number;
   isLoadingTTS?: boolean;
+  isLoadingAR?: boolean;
   generatedImageBase64?: string;
 }
 
