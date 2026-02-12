@@ -294,12 +294,20 @@ Generate a scene based on the current conversation context.
 
 ```http
 POST /generate-image
-Content-Type: application/x-www-form-urlencoded
+Content-Type: application/json
 ```
 
 | Field             | Type   | Required | Description                              |
 | ----------------- | ------ | -------- | ---------------------------------------- |
 | `conversation_id` | string | ✅       | ID of the conversation to visualize      |
+
+**Request Body:**
+
+```json
+{
+  "conversation_id": "abc-123"
+}
+```
 
 **Response:**
 

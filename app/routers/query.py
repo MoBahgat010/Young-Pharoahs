@@ -13,7 +13,7 @@ from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated
 
 from app.models.response import QueryResponse, SourceDocument, ImageDescriptionResponse
-from app.models.request import QueryRequest
+from app.models.request import QueryRequest, GenerateImageRequest
 from app.services import (
     EmbeddingService,
     VisionService,
@@ -359,12 +359,14 @@ async def synthesize_speech(
     dependencies=[]
 )
 async def generate_image(
-    conversation_id: str = Form(..., description="Conversation ID to derive context from"),
+    request: GenerateImageRequest = Body(..., description="Request body"),
     services: ServiceContainer = Depends(get_services),
 ):
     """
     Generate an image based on the current conversation context.
     """
+    conversation_id = request.conversation_id
+    
     # 1. Get history
     history = []
     if services.conversation_service:

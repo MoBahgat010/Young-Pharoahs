@@ -45,6 +45,11 @@ class QueryRequest(BaseModel):
     gender: Optional[str] = Field(None, description="Voice gender for TTS (female/male)")
     tts_provider: Optional[str] = Field(None, description="TTS provider (elevenlabs/deepgram)")
     tts_model: Optional[str] = Field(None, description="TTS model override")
+
+
+class GenerateImageRequest(BaseModel):
+    """Request model for image generation."""
+    conversation_id: str = Field(..., description="Conversation ID to derive context from")
     
     class Config:
         json_schema_extra = {
