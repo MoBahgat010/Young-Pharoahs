@@ -125,22 +125,16 @@ const ARScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Select a Character</Text>
+      <Text style={styles.title}>AR Experience</Text>
       <Text style={styles.subtitle}>
-        Choose a character to view in AR
+        View the Pharaoh in Augmented Reality
       </Text>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
-          style={[styles.button, styles.buttonMale]} 
-          onPress={() => openUnity('HumanM')}>
-          <Text style={styles.buttonText}>Human Model</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.button, styles.buttonFemale]} 
+          style={[styles.button, styles.buttonPharaoh]} 
           onPress={() => openUnity('cat_pharaoh__king')}>
-          <Text style={styles.buttonText}>Ramesses</Text>
+          <Text style={styles.buttonText}>Launch AR</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -177,11 +171,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  buttonMale: {
-    backgroundColor: '#0056b3',
-  },
-  buttonFemale: {
-    backgroundColor: '#c71585',
+  buttonPharaoh: {
+    backgroundColor: '#D4AF37',
   },
   buttonText: {
     color: '#fff',

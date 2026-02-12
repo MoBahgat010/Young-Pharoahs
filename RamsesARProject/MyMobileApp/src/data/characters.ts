@@ -7,24 +7,12 @@ export interface Character {
   audioUrl?: string;
 }
 
-// Mock characters - replace with real pharaoh characters later
+// Mock characters - only the cat pharaoh king model is available
 export const CHARACTERS: Character[] = [
   {
-    id: 'ramses',
+    id: 'cat_pharaoh__king',
     name: 'Ramses II',
     description: 'The Great Pharaoh',
     thumbnail: 'https://via.placeholder.com/100x100/FFD700/000000?text=R',
-  },
-  {
-    id: 'cleopatra',
-    name: 'Cleopatra',
-    description: 'Queen of Egypt',
-    thumbnail: 'https://via.placeholder.com/100x100/9370DB/FFFFFF?text=C',
-  },
-  {
-    id: 'tutankhamun',
-    name: 'Tutankhamun',
-    description: 'The Boy King',
-    thumbnail: 'https://via.placeholder.com/100x100/4169E1/FFFFFF?text=T',
   },
 ];

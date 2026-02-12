@@ -103,7 +103,6 @@ public class ARManager : MonoBehaviour
     /// </summary>
     private GameObject LoadCharacterPrefab(string characterId)
     {
-        // Expecting prefabs at Assets/Resources/Characters/HumanM, Assets/Resources/Characters/HumanF
         string path = $"Characters/{characterId}";
         GameObject prefab = Resources.Load<GameObject>(path);
 
@@ -111,13 +110,8 @@ public class ARManager : MonoBehaviour
         {
             Debug.LogError($"ARManager: Could not find prefab at Resources/{path}");
             
-            // Fallback try loading by name keyword
-            if (characterId.ToLower().Contains("ramesses") || characterId.ToLower().Contains("ramses"))
-                prefab = Resources.Load<GameObject>("Characters/cat_pharaoh__king");
-            else if (characterId.ToLower().Contains("male") || characterId.ToLower().Contains("human"))
-                prefab = Resources.Load<GameObject>("Characters/HumanM");
-            else if (characterId.ToLower().Contains("nefertari") || characterId.ToLower().Contains("female"))
-                prefab = Resources.Load<GameObject>("Characters/HumanF");
+            // Fallback to the only available character
+            prefab = Resources.Load<GameObject>("Characters/cat_pharaoh__king");
         }
 
         if (prefab == null)
