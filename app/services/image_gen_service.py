@@ -79,7 +79,7 @@ class ImageGenerationService:
             logger.info("✅ Mistral 7B Q4 loaded successfully")
 
         except Exception:
-            logger.error("❌ Failed to load Mistral 7B:\n" + traceback.format_exc())
+            logger.error("❌ Failed to load Mistral 7B (will utilize fallback prompts):\n" + traceback.format_exc())
             self.llm_model = None
 
     def _load_diffusion(self):
@@ -109,9 +109,18 @@ class ImageGenerationService:
     def generate_prompt_from_context(self, history: List[dict]) -> str:
         self.initialize()
 
+        # Fallback logic if LLM is unavailable or fails
+        fallback_prompt = "cinematic ancient egypt scene, ultra detailed, 8k, dramatic lighting"
+        
+        # Try to extract the last user message to make the fallback relevant
+        last_user_msg = next((msg["content"] for msg in reversed(history) if msg.get("role") == "user"), None)
+        if last_user_msg:
+             # Basic prompt engineering without LLM
+             fallback_prompt = f"{last_user_msg}, cinematic, ancient egypt style, hyperrealistic, 8k, dramatic lighting, detailed"
+
         if not self.llm_model:
-            logger.warning("⚠️ LLM not loaded, using fallback prompt")
-            return "cinematic, ultra realistic, dramatic lighting, 8k, detailed"
+            logger.warning(f"⚠️ LLM not loaded, using fallback prompt: {fallback_prompt}")
+            return fallback_prompt
 
         context = "\n".join(
             f"{m.get('role', 'user')}: {m.get('content')}" for m in history[-6:]
@@ -134,7 +143,7 @@ class ImageGenerationService:
 
         except Exception:
             logger.error("❌ Prompt generation failed:\n" + traceback.format_exc())
-            return "cinematic, ultra realistic, dramatic lighting, 8k, detailed"
+            return fallback_prompt
 
     # ---------------- IMAGE GENERATION ---------------- #
 
