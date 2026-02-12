@@ -6,7 +6,8 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Handles AR plane detection and character placement.
-/// Falls back to placing in front of camera if no planes detected.
+/// Uses three tiers: (1) confirmed plane polygon, (2) any AR-detected surface,
+/// (3) estimated floor fallback after timeout if detection fails.
 /// </summary>
 public class CharacterPlacer : MonoBehaviour
 {
@@ -19,6 +20,7 @@ public class CharacterPlacer : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private float characterScale = 1.25f;
     [SerializeField] private float fallbackDistance = 2f; // meters in front of camera
+    [SerializeField] private float fallbackTimeout = 8f;  // seconds before floor-estimation kicks in
     [Tooltip("Model correction rotation. X=-90 stands up Z-up models. Y adjusts facing direction (try 0, 90, 180, -90 if model faces wrong way). Z=roll.")]
     [SerializeField] private Vector3 prefabRotationOffset = new Vector3(-90f, 0f, 0f);
     
@@ -28,13 +30,16 @@ public class CharacterPlacer : MonoBehaviour
     private Pose placementPose;
     
     private bool hasLoggedReady = false;
+    private bool hasLoggedFallback = false;
     private float logTimer = 0f;
     private float timeSinceStart = 0f;
+    private string activeMethod = "";
 
     // Instruction UI (created programmatically)
     private Canvas instructionCanvas;
     private Text instructionText;
     private Text scanningText;
+    private Text methodText;
 
     private void Start()
     {
@@ -67,7 +72,7 @@ public class CharacterPlacer : MonoBehaviour
         GameObject scanObj = new GameObject("ScanningText");
         scanObj.transform.SetParent(canvasObj.transform, false);
         scanningText = scanObj.AddComponent<Text>();
-        scanningText.text = "Press to Start\u2026";
+        scanningText.text = "Scanning for surfaces\u2026";
         scanningText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         if (scanningText.font == null) scanningText.font = Font.CreateDynamicFontFromOSFont("Arial", 32);
         scanningText.fontSize = 32;
@@ -83,7 +88,7 @@ public class CharacterPlacer : MonoBehaviour
         GameObject textObj = new GameObject("TapToStartText");
         textObj.transform.SetParent(canvasObj.transform, false);
         instructionText = textObj.AddComponent<Text>();
-        instructionText.text = "TAP TO START";
+        instructionText.text = "TAP TO PLACE";
         instructionText.font = scanningText.font;
         instructionText.fontSize = 54;
         instructionText.fontStyle = FontStyle.Bold;
@@ -97,6 +102,21 @@ public class CharacterPlacer : MonoBehaviour
         textRect.anchorMax = new Vector2(0.9f, 0.6f);
         textRect.offsetMin = Vector2.zero;
         textRect.offsetMax = Vector2.zero;
+
+        // --- Method debug label (top of screen, shows which detection tier is active) ---
+        GameObject methodObj = new GameObject("MethodText");
+        methodObj.transform.SetParent(canvasObj.transform, false);
+        methodText = methodObj.AddComponent<Text>();
+        methodText.text = "";
+        methodText.font = scanningText.font;
+        methodText.fontSize = 28;
+        methodText.color = new Color(0f, 1f, 0f, 0.9f); // green
+        methodText.alignment = TextAnchor.UpperCenter;
+        var methodRect = methodObj.GetComponent<RectTransform>();
+        methodRect.anchorMin = new Vector2(0.05f, 0.88f);
+        methodRect.anchorMax = new Vector2(0.95f, 0.98f);
+        methodRect.offsetMin = Vector2.zero;
+        methodRect.offsetMax = Vector2.zero;
 
         // Start: show scanning hint, hide tap instruction
         scanningText.gameObject.SetActive(true);
@@ -158,24 +178,34 @@ public class CharacterPlacer : MonoBehaviour
     {
         Vector2 screenCenter = new Vector2(Screen.width / 2f, Screen.height / 2f);
         
-        // Try plane raycast first, then feature points
+        // 1. Best accuracy: confirmed plane polygon
         if (raycastManager.Raycast(screenCenter, hits, TrackableType.PlaneWithinPolygon))
         {
             if (!isPlacementValid)
                 Debug.Log("CharacterPlacer: Plane detected! Tap to place character.");
             isPlacementValid = true;
             placementPose = hits[0].pose;
+            activeMethod = "[1] Plane Polygon";
         }
-        else if (raycastManager.Raycast(screenCenter, hits, TrackableType.FeaturePoint))
+        // 2. Good: any AR-detected surface (estimated planes, bounds, feature points, etc.)
+        else if (raycastManager.Raycast(screenCenter, hits, TrackableType.All))
         {
             if (!isPlacementValid)
-                Debug.Log("CharacterPlacer: Feature point detected! Tap to place character.");
+                Debug.Log($"CharacterPlacer: Surface detected ({hits[0].hitType})! Tap to place.");
             isPlacementValid = true;
             placementPose = hits[0].pose;
+            activeMethod = $"[2] AR Surface ({hits[0].hitType})";
+        }
+        // 3. Fallback: estimate floor position after timeout
+        else if (timeSinceStart > fallbackTimeout && Camera.main != null)
+        {
+            EstimateFloorPlacement();
+            activeMethod = "[3] Floor Estimation";
         }
         else
         {
             isPlacementValid = false;
+            activeMethod = "Scanning...";
         }
         
         if (placementIndicator != null)
@@ -193,6 +223,36 @@ public class CharacterPlacer : MonoBehaviour
         {
             if (scanningText != null) scanningText.gameObject.SetActive(!isPlacementValid);
             if (instructionText != null) instructionText.gameObject.SetActive(isPlacementValid);
+            if (methodText != null) methodText.text = activeMethod;
+        }
+    }
+    
+    /// <summary>
+    /// Estimates a floor position when AR plane detection isn't working.
+    /// Assumes phone is held at ~1.3m height (standing) and places the
+    /// character fallbackDistance meters ahead on the estimated floor.
+    /// </summary>
+    private void EstimateFloorPlacement()
+    {
+        Camera cam = Camera.main;
+        float estimatedFloorY = cam.transform.position.y - 1.3f;
+        
+        Vector3 forward = cam.transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+            forward = Vector3.forward;
+        forward.Normalize();
+        
+        Vector3 floorPos = cam.transform.position + forward * fallbackDistance;
+        floorPos.y = estimatedFloorY;
+        
+        placementPose = new Pose(floorPos, Quaternion.identity);
+        isPlacementValid = true;
+        
+        if (!hasLoggedFallback)
+        {
+            Debug.Log($"CharacterPlacer: Floor estimation fallback active. Estimated floor at y={estimatedFloorY:F2}, placement at {floorPos}");
+            hasLoggedFallback = true;
         }
     }
     
@@ -211,43 +271,22 @@ public class CharacterPlacer : MonoBehaviour
         
         Debug.Log($"CharacterPlacer: Touch at {touch.position}. PlacementValid={isPlacementValid}");
         
-        if (isPlacementValid)
+        if (!isPlacementValid)
         {
-            // Try raycast from touch position
-            if (raycastManager.Raycast(touch.position, hits, TrackableType.PlaneWithinPolygon | TrackableType.FeaturePoint))
-            {
-                placementPose = hits[0].pose;
-            }
-            PlaceCharacter();
-        }
-        else
-        {
-            // FALLBACK: Place in front of camera when no planes/features detected
-            Debug.Log("CharacterPlacer: No plane detected — using FALLBACK placement in front of camera");
-            PlaceInFrontOfCamera();
-        }
-    }
-    
-    private void PlaceInFrontOfCamera()
-    {
-        Camera cam = Camera.main;
-        if (cam == null)
-        {
-            Debug.LogError("CharacterPlacer: Camera.main is null!");
+            Debug.Log("CharacterPlacer: No surface detected yet — ignoring tap. Keep scanning!");
             return;
         }
         
-        // Place character 2m in front of camera, at camera height minus 1m (roughly floor level)
-        Vector3 camForward = cam.transform.forward;
-        camForward.y = 0; // Keep horizontal
-        camForward.Normalize();
-        
-        Vector3 position = cam.transform.position + camForward * fallbackDistance;
-        position.y = cam.transform.position.y - 1.0f; // Approximate floor
-        
-        Quaternion rotation = Quaternion.LookRotation(-camForward, Vector3.up);
-        
-        placementPose = new Pose(position, rotation);
+        // Try raycast from touch position for more accurate placement
+        if (raycastManager.Raycast(touch.position, hits, TrackableType.PlaneWithinPolygon))
+        {
+            placementPose = hits[0].pose;
+        }
+        else if (raycastManager.Raycast(touch.position, hits, TrackableType.All))
+        {
+            placementPose = hits[0].pose;
+        }
+        // else: use the current placementPose from UpdatePlacementIndicator (floor estimation)
         PlaceCharacter();
     }
     
