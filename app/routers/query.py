@@ -284,12 +284,18 @@ async def synthesize_speech(
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     
-    # Auto-detect gender from conversation history
-    if not gender and conversation_id and services.conversation_service:
-        history = await services.conversation_service.get_history(conversation_id, limit=10)
-        if history:
-            gender = services.llm_service.detect_gender(history, text_to_speak=text)
-            logger.info(f"Auto-detected gender: {gender}")
+    # Auto-detect gender (Always prioritize detection if service available)
+    if services.llm_service:
+        history = []
+        if conversation_id and services.conversation_service:
+            history = await services.conversation_service.get_history(conversation_id, limit=10)
+        
+        # Detect gender using text and available history
+        detected_gender = services.llm_service.detect_gender(history, text_to_speak=text)
+        logger.info(f"Auto-detected gender: {detected_gender} (Provided: {gender})")
+        
+        # Use detected gender
+        gender = detected_gender
 
     provider_used = "deepgram"
     

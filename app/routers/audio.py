@@ -109,11 +109,13 @@ async def voice_query_rag(
     # 5) TTS
     provider_used = "deepgram"
     
-    # Auto-detect gender if not provided
-    if not gender:
-        # Use history + the new answer to detect gender
-        gender = services.llm_service.detect_gender(history, text_to_speak=answer_reformatted)
-        logger.info(f"Auto-detected gender for voice query: {gender}")
+    # Auto-detect gender (Always prioritize detection)
+    # Use history + the new answer to detect gender
+    detected_gender = services.llm_service.detect_gender(history, text_to_speak=answer_reformatted)
+    logger.info(f"Auto-detected gender for voice query: {detected_gender} (Provided: {gender})")
+    
+    # Use detected gender
+    gender = detected_gender
     
     # Handle model selection strictly based on gender if model not explicitly provided
     if tts_model:

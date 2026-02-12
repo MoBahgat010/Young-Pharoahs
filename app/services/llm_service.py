@@ -179,7 +179,7 @@ Reply with ONLY one word: "male" or "female". Nothing else."""
                 return "male"
             elif "female" in result:
                 return "female"
-            return "female"  # default for most pharaohs
+            return "male"  # default for most pharaohs
         except Exception as e:
             logger.warning(f"Gender detection failed: {e}")
             return "female"
