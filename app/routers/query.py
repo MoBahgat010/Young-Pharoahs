@@ -13,7 +13,7 @@ from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated
 
 from app.models.response import QueryResponse, SourceDocument, ImageDescriptionResponse
-from app.models.request import QueryRequest, TTSRequest
+from app.models.request import QueryRequest
 from app.services import (
     EmbeddingService,
     VisionService,
@@ -271,18 +271,16 @@ async def query_rag(
     dependencies=[]
 )
 async def synthesize_speech(
-    request: TTSRequest = Body(..., description="TTS request body"),
+    text: str = Form(..., description="Text to synthesize"),
+    gender: Optional[str] = Form(None, description="Voice gender for TTS (female/male). Auto-detected if omitted with conversation_id."),
+    tts_model: Optional[str] = Form(None, description="TTS model override"),
+    conversation_id: Optional[str] = Form(None, description="Conversation ID for auto gender detection"),
     services: ServiceContainer = Depends(get_services),
 ) -> QueryResponse:
     """
     Convert text to speech.
     If conversation_id is provided and gender is not, auto-detect the pharaoh's gender.
     """
-    text = request.text
-    gender = request.gender
-    tts_model = request.tts_model
-    conversation_id = request.conversation_id
-    
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     
