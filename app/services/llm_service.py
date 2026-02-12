@@ -137,18 +137,19 @@ Rules:
             logger.warning(f"Query rewriting failed, using original: {e}")
             return query
 
-    def detect_gender(self, history: list[dict]) -> str:
+    def detect_gender(self, history: list[dict], text_to_speak: str | None = None) -> str:
         """
-        Detect the gender of the pharaoh currently being discussed in the conversation.
+        Detect the gender of the pharaoh using history and the current text response.
         
         Args:
             history: Conversation messages [{"role": ..., "content": ...}].
+            text_to_speak: The text the pharaoh is about to say.
             
         Returns:
             "male" or "female".
         """
-        if not history:
-            return "female"
+        if not history and not text_to_speak:
+            return "female"  # default
 
         # Use last 4 messages for context
         recent = history[-4:]
@@ -157,16 +158,22 @@ Rules:
             role = "User" if msg["role"] == "user" else "Pharaoh"
             lines.append(f"{role}: {msg['content']}")
         context = "\n".join(lines)
+        
+        text_context = ""
+        if text_to_speak:
+            text_context = f"\nThe Pharaoh says: \"{text_to_speak}\"\n"
 
-        prompt = f"""Based on this conversation, determine the gender of the Pharaoh currently speaking.
+        prompt = f"""Based on the conversation and the Pharaoh's statement below, determine the gender of the Pharaoh.
 
+Conversastion History:
 {context}
+
+{text_context}
 
 Reply with ONLY one word: "male" or "female". Nothing else."""
 
         try:
             result = self.generate(prompt).strip().lower()
-            print("result: ", result)
             if "male" in result and "female" not in result:
                 return "male"
             elif "female" in result:

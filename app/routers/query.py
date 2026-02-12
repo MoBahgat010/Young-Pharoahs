@@ -288,7 +288,7 @@ async def synthesize_speech(
     if not gender and conversation_id and services.conversation_service:
         history = await services.conversation_service.get_history(conversation_id, limit=10)
         if history:
-            gender = services.llm_service.detect_gender(history)
+            gender = services.llm_service.detect_gender(history, text_to_speak=text)
             logger.info(f"Auto-detected gender: {gender}")
 
     provider_used = "deepgram"
