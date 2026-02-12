@@ -59,12 +59,14 @@ class TTSRequest(BaseModel):
     text: str = Field(..., description="Text to synthesize")
     gender: Optional[str] = Field(None, description="Voice gender for TTS (female/male)")
     tts_model: Optional[str] = Field(None, description="TTS model override")
+    conversation_id: Optional[str] = Field(None, description="Conversation ID for auto gender detection")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "text": "The river Nile is the longest river in the world.",
                 "gender": "male",
-                "tts_model": "aura-asteria-en"
+                "tts_model": "aura-asteria-en",
+                "conversation_id": "uuid-string"
             }
         }

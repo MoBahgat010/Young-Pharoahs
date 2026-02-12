@@ -166,6 +166,7 @@ Reply with ONLY one word: "male" or "female". Nothing else."""
 
         try:
             result = self.generate(prompt).strip().lower()
+            print("result: ", result)
             if "male" in result and "female" not in result:
                 return "male"
             elif "female" in result:
