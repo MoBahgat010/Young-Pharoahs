@@ -18,7 +18,7 @@ public class CharacterPlacer : MonoBehaviour
     [SerializeField] private GameObject characterPrefab;
     
     [Header("Settings")]
-    [SerializeField] private float characterScale = 1.25f;
+    [SerializeField] private float characterScale = 1.875f;
     [SerializeField] private float fallbackDistance = 2f; // meters in front of camera
     [SerializeField] private float fallbackTimeout = 8f;  // seconds before floor-estimation kicks in
     [Tooltip("Model correction rotation. X=-90 stands up Z-up models. Y adjusts facing direction (try 0, 90, 180, -90 if model faces wrong way). Z=roll.")]
