@@ -33,11 +33,11 @@ class Settings(BaseSettings):
     gemini_vision_model: str = "gemini-3-flash-preview"
     
     # ── RAG Configuration ───────────────────────────────────────────────────
-    top_k: int = 30
+    top_k: int = 10
     max_top_k: int = 100
     min_top_k: int = 1
 
-    rerank_top_k: int = 10
+    rerank_top_k: int = 5
     
     # ── Embedding Configuration ─────────────────────────────────────────────
     embedding_model: str = "BAAI/bge-m3"
@@ -85,6 +85,27 @@ class Settings(BaseSettings):
     elevenlabs_default_voice: str = "female"
     elevenlabs_default_model: str = "eleven_multilingual_v2"
     tts_audio_format: str = "mp3"
+
+    # ── Database Configuration ──────────────────────────────────────────────
+    mongodb_uri: str = Field(..., alias="MONGODB_URI")
+    db_name: str = "pharaohs_db"
+
+    # ── Auth Configuration ──────────────────────────────────────────────────
+    jwt_secret_key: str = "your_secret_key"  # Change in production
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24  # 1 day
+
+    # ── Google Places Configuration ─────────────────────────────────────────
+    google_places_api_key: str | None = Field(default=None, alias="GOOGLE_PLACES_API_KEY")
+    places_radius: int = 5000  # search radius in meters
+
+    # ── Uber Configuration ──────────────────────────────────────────────────
+    uber_credentials_file: str = "uber_credentials.json"
+    
+    # ── Cloudinary Configuration ────────────────────────────────────────────
+    cloudinary_cloud_name: str | None = Field(default=None, alias="CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key: str | None = Field(default=None, alias="CLOUDINARY_API_KEY")
+    cloudinary_api_secret: str | None = Field(default=None, alias="CLOUDINARY_API_SECRET")
     
     def validate_api_keys(self) -> None:
         """Validate that required API keys are present."""

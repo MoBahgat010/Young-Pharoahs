@@ -11,13 +11,13 @@ from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 
 from app.models.response import VoiceQueryResponse, SourceDocument
-from app.routers.query import ServiceContainer, get_services
+from app.routers.query import ServiceContainer, get_services, get_current_user
 from app.utils.prompt import build_context_from_documents
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[])
 
 
 @router.post(
@@ -32,14 +32,16 @@ async def voice_query_rag(
     gender: Optional[str] = Form(None, description="Voice gender: female/male"),
     tts_model: Optional[str] = Form(None, description="TTS model override"),
     stt_model: Optional[str] = Form(None, description="STT model override"),
+    conversation_id: Optional[str] = Form(None, description="Conversation ID to continue a session"),
     services: ServiceContainer = Depends(get_services),
 ) -> VoiceQueryResponse:
     """
-    Voice query flow:
+    Voice query flow with optional conversation memory:
     1) Transcribe audio with Deepgram STT
-    2) Retrieve context from Pinecone
-    3) Generate answer with Gemini LLM
-    4) Synthesize speech with TTS provider
+    2) Load conversation history (if conversation_id provided)
+    3) Retrieve context from Pinecone
+    4) Generate answer with Gemini LLM (with history)
+    5) Synthesize speech with TTS provider
     """
     if services.stt_service is None or services.tts_service is None:
         raise HTTPException(status_code=500, detail="STT/TTS services not initialized")
@@ -63,45 +65,82 @@ async def voice_query_rag(
 
     logger.info("Transcript: %s", transcript[:120])
 
-    # 2) Retrieve documents
+    # 2) Conversation memory
+    history = []
+    if services.conversation_service:
+        if conversation_id:
+            history = await services.conversation_service.get_history(conversation_id, limit=10)
+            if not history:
+                logger.warning(f"Conversation {conversation_id} not found, creating new one")
+                conversation_id = await services.conversation_service.create_conversation()
+        else:
+            conversation_id = await services.conversation_service.create_conversation()
+
+        await services.conversation_service.add_message(conversation_id, "user", transcript)
+
+    # 3) Rewrite query for better retrieval
+    rewritten_query = services.llm_service.rewrite_query(transcript, history)
+
+    # 4) Retrieve documents
     try:
         k = settings.top_k
-        results = services.vector_store_service.similarity_search(transcript, k=k)
+        results = services.vector_store_service.similarity_search(rewritten_query, k=k)
 
         rerank_top_k = settings.rerank_top_k
-        results = services.reranker_service.rerank(transcript, results, top_k=rerank_top_k)
+        results = services.reranker_service.rerank(rewritten_query, results, top_k=rerank_top_k)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"Vector search failed: {e}")
 
-    # 3) Build context and generate answer
+    # 4) Build context and generate answer (with history)
     context = build_context_from_documents(results)
     try:
-        answer = services.llm_service.generate_with_context(query=transcript, context=context)
+        answer = services.llm_service.generate_with_context(
+            query=transcript,
+            context=context,
+            history=history,
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"LLM generation failed: {e}")
     
     answer_reformatted = answer.replace("*", "").strip()
 
-    # 4) TTS
+    # 5) TTS
+    provider_used = "deepgram"
+    
+    # Auto-detect gender (Always prioritize detection)
+    # Use history + the new answer to detect gender
+    detected_gender = services.llm_service.detect_gender(history, text_to_speak=answer_reformatted)
+    logger.info(f"Auto-detected gender for voice query: {detected_gender} (Provided: {gender})")
+    
+    # Use detected gender
+    gender = detected_gender
+    
+    # Handle model selection strictly based on gender if model not explicitly provided
+    if tts_model:
+        model_used = tts_model
+    elif gender and gender.lower() == "male":
+        model_used = "aura-helios-en"
+    else:
+        model_used = settings.deepgram_tts_model
+
     try:
         audio_out = services.tts_service.synthesize(
             text=answer_reformatted,
-            provider=tts_provider,
+            provider="deepgram",
             voice=gender,
-            model=tts_model,
+            model=model_used,
         )
     except (RuntimeError, ValueError) as e:
         raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
 
     audio_base64 = base64.b64encode(audio_out).decode("utf-8")
 
-    provider_used = (tts_provider or settings.tts_provider).lower()
-    if provider_used == "deepgram":
-        model_used = tts_model or settings.deepgram_tts_model
-    else:
-        model_used = tts_model or settings.elevenlabs_default_model
+    if services.conversation_service and conversation_id:
+        await services.conversation_service.add_message(
+            conversation_id, "assistant", answer, audio_base64=audio_base64
+        )
 
     return VoiceQueryResponse(
         transcript=transcript,
@@ -111,4 +150,6 @@ async def voice_query_rag(
         tts_model=model_used,
         search_query=transcript,
         top_k=k,
+        conversation_id=conversation_id,
     )
+

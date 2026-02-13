@@ -43,6 +43,9 @@ class QueryResponse(BaseModel):
     search_query: str = Field(..., description="Enriched search query used")
     top_k: int = Field(..., description="Number of results retrieved")
     
+    # Conversation memory
+    conversation_id: Optional[str] = Field(None, description="Conversation session ID")
+    
     # TTS Response Fields
     audio_base64: Optional[str] = Field(None, description="Base64-encoded audio output")
     tts_provider: Optional[str] = Field(None, description="TTS provider used")
@@ -80,6 +83,7 @@ class VoiceQueryResponse(BaseModel):
     tts_model: str = Field(..., description="TTS model used")
     search_query: str = Field(..., description="Enriched search query used")
     top_k: int = Field(..., description="Number of results retrieved")
+    conversation_id: Optional[str] = Field(None, description="Conversation session ID")
 
     class Config:
         json_schema_extra = {
@@ -145,4 +149,5 @@ class ErrorResponse(BaseModel):
 class ImageDescriptionResponse(BaseModel):
     """Response model for image description endpoint."""
     descriptions: List[str] = Field(..., description="List of image descriptions")
+    image_urls: List[str] = Field(default_factory=list, description="List of Cloudinary image URLs")
 

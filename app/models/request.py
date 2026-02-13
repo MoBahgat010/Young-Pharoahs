@@ -29,18 +29,52 @@ class QueryRequest(BaseModel):
         None,
         description="Optional list of image descriptions"
     )
+
+    image_urls: Optional[list[str]] = Field(
+        None,
+        description="Optional list of image URLs (uploaded to Cloudinary)"
+    )
     
-    # TTS Parameters
+    # Conversation memory
+    conversation_id: Optional[str] = Field(
+        None,
+        description="Conversation ID to continue an existing session. Omit to start a new conversation."
+    )
+    
+    # TTS Parameters (Legacy - used for voice query logic or other purposes if needed)
     gender: Optional[str] = Field(None, description="Voice gender for TTS (female/male)")
     tts_provider: Optional[str] = Field(None, description="TTS provider (elevenlabs/deepgram)")
     tts_model: Optional[str] = Field(None, description="TTS model override")
+
+
+class GenerateImageRequest(BaseModel):
+    """Request model for image generation."""
+    conversation_id: str = Field(..., description="Conversation ID to derive context from")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "prompt": "Tell me about Ramses II",
                 "image_descriptions": ["A statue of Ramses II"],
+                "conversation_id": None,
                 "gender": "male",
                 "tts_provider": "elevenlabs"
+            }
+        }
+
+
+class TTSRequest(BaseModel):
+    """Request model for TTS endpoint."""
+    
+    text: str = Field(..., description="Text to synthesize")
+    gender: Optional[str] = Field(None, description="Voice gender for TTS (female/male)")
+    tts_model: Optional[str] = Field(None, description="TTS model override")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "The river Nile is the longest river in the world.",
+                "gender": "male",
+                "tts_model": "aura-asteria-en"
             }
         }

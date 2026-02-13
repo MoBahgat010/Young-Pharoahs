@@ -8,10 +8,12 @@ import logging
 import base64
 from typing import List, Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body, Form
+from fastapi.security import OAuth2PasswordBearer
+from typing import Annotated
 
 from app.models.response import QueryResponse, SourceDocument, ImageDescriptionResponse
-from app.models.request import QueryRequest
+from app.models.request import QueryRequest, GenerateImageRequest
 from app.services import (
     EmbeddingService,
     VisionService,
@@ -20,6 +22,11 @@ from app.services import (
     STTService,
     TTSService,
     RerankerService,
+    PlacesService,
+    UberService,
+    ConversationService,
+    CloudinaryService,
+    ImageGenerationService,
 )
 from app.utils.image import upload_files_to_pil_images, validate_image_count
 from app.utils.prompt import (
@@ -46,6 +53,13 @@ class ServiceContainer:
         reranker_service: RerankerService,
         stt_service: Optional[STTService] = None,
         tts_service: Optional[TTSService] = None,
+        database_service: Optional["DatabaseService"] = None,
+        auth_service: Optional["AuthService"] = None,
+        places_service: Optional[PlacesService] = None,
+        uber_service: Optional[UberService] = None,
+        conversation_service: Optional[ConversationService] = None,
+        cloudinary_service: Optional[CloudinaryService] = None,
+        image_gen_service: Optional[ImageGenerationService] = None,
     ):
         self.embedding_service = embedding_service
         self.vision_service = vision_service
@@ -54,6 +68,13 @@ class ServiceContainer:
         self.reranker_service = reranker_service
         self.stt_service = stt_service
         self.tts_service = tts_service
+        self.database_service = database_service
+        self.auth_service = auth_service
+        self.places_service = places_service
+        self.uber_service = uber_service
+        self.conversation_service = conversation_service
+        self.cloudinary_service = cloudinary_service
+        self.image_gen_service = image_gen_service
 
 
 # Global service container (set by main app during startup)
@@ -73,11 +94,21 @@ def get_services() -> ServiceContainer:
     return _service_container
 
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/signin")
+
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)], 
+    services: ServiceContainer = Depends(get_services)
+):
+    return await services.auth_service.get_current_user(token)
+
+
 @router.post(
     "/describe-images",
     response_model=ImageDescriptionResponse,
     summary="Get image descriptions from vision model",
     description="Upload images to get their textual descriptions from the vision model.",
+    dependencies=[]
 )
 async def describe_images(
     images: List[UploadFile] = File(..., description="Images to analyze"),
@@ -101,7 +132,16 @@ async def describe_images(
         image_descriptions = await services.vision_service.describe_images_batch(pil_images)
         logger.info(f"Generated {len(image_descriptions)} image descriptions")
         
-        return ImageDescriptionResponse(descriptions=image_descriptions)
+        # Upload images to Cloudinary in parallel (if service enabled)
+        image_urls = []
+        if services.cloudinary_service:
+            image_urls = await services.cloudinary_service.upload_images_batch(pil_images)
+            logger.info(f"Uploaded {len(image_urls)} images to Cloudinary")
+            
+        return ImageDescriptionResponse(
+            descriptions=image_descriptions,
+            image_urls=image_urls
+        )
 
     except ValueError as e:
         logger.error(f"Image validation error: {e}")
@@ -119,6 +159,7 @@ async def describe_images(
     response_model=QueryResponse,
     summary="Query RAG system",
     description="Submit a text query with optional image descriptions (from /describe-images) to retrieve and generate answers.",
+    dependencies=[]
 )
 async def query_rag(
     request: QueryRequest = Body(..., description="Query request body"),
@@ -126,22 +167,15 @@ async def query_rag(
 ) -> QueryResponse:
     """
     Query the RAG system with text and optional image descriptions.
-    
-    Args:
-        request: Query parameters including prompt and image descriptions
-        services: Injected service container
-        
-    Returns:
-        QueryResponse with answer and sources
-        
-    Raises:
-        HTTPException: For various errors during processing
+    Supports multi-turn conversations via conversation_id.
     """
     prompt = request.prompt
     image_descriptions = request.image_descriptions
+    image_urls = request.image_urls
     gender = request.gender
     tts_provider = request.tts_provider
     tts_model = request.tts_model
+    conversation_id = request.conversation_id
 
     logger.info(f"Received query: '{prompt[:100]}...'")
     
@@ -152,8 +186,32 @@ async def query_rag(
     prompt = prompt.strip()
     valid_descriptions: List[str] = image_descriptions or []
     
+    # ── Conversation Memory ─────────────────────────────────────────────────
+    history = []
+    if services.conversation_service:
+        if conversation_id:
+            # Continue existing conversation
+            history = await services.conversation_service.get_history(conversation_id, limit=10)
+            if not history:
+                logger.warning(f"Conversation {conversation_id} not found, creating new one")
+                conversation_id = await services.conversation_service.create_conversation()
+        else:
+            # Start new conversation
+            conversation_id = await services.conversation_service.create_conversation()
+        
+        # Store user message with image URLs
+        await services.conversation_service.add_message(
+            conversation_id, 
+            "user", 
+            prompt,
+            image_urls=image_urls
+        )
+    
+    # ── Query Rewriting ─────────────────────────────────────────────────────
+    rewritten_query = services.llm_service.rewrite_query(prompt, history)
+    
     # Enrich query with image context
-    search_query = enrich_query_with_images(prompt, valid_descriptions)
+    search_query = enrich_query_with_images(rewritten_query, valid_descriptions)
     logger.info(f"Search query: '{search_query[:100]}...'")
     
     # Perform vector search
@@ -167,7 +225,6 @@ async def query_rag(
         logger.info(f"Retrieved {len(results)} initial documents")
         
         # Rerank results
-        # We want to return 8 documents after reranking
         rerank_top_k = 8
         results = services.reranker_service.rerank(search_query, results, top_k=rerank_top_k)
         logger.info(f"Reranked to top {len(results)} documents")
@@ -185,14 +242,15 @@ async def query_rag(
     # Build context from results
     context = build_context_from_documents(results)
     
-    # Generate answer using LLM
+    # Generate answer using LLM (with conversation history)
     logger.info(f"{'context'}: {context}")
     logger.info(f"{'prompt'}: {prompt}")
     try:
         answer = services.llm_service.generate_with_context(
             query=prompt,
             context=context,
-            image_descriptions=valid_descriptions
+            image_descriptions=valid_descriptions,
+            history=history,
         )
         logger.info("Generated answer successfully")
     except RuntimeError as e:
@@ -201,42 +259,145 @@ async def query_rag(
     except Exception as e:
         logger.error(f"Unexpected error during generation: {e}")
         raise HTTPException(status_code=500, detail=f"Generation error: {e}")
-    
-    audio_base64 = None
-    provider_used = None
-    model_used = None
 
-    # answer_reformatted = answer.replace("*", "").strip()
+    # Store assistant response in conversation
+    if services.conversation_service and conversation_id:
+        await services.conversation_service.add_message(conversation_id, "assistant", answer)
 
-    # # Determine TTS settings
-    # provider_used = (tts_provider or settings.tts_provider).lower()
-    # if provider_used == "deepgram":
-    #     model_used = tts_model or settings.deepgram_tts_model
-    # else:
-    #     model_used = tts_model or settings.elevenlabs_default_model
-
-    # # 4) TTS
-    # try:
-    #     audio_out = services.tts_service.synthesize(
-    #         text=answer_reformatted,
-    #         provider=provider_used,
-    #         voice=gender,
-    #         model=model_used,
-    #     )
-    # except (RuntimeError, ValueError) as e:
-    #     raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
-
-    # audio_base64 = base64.b64encode(audio_out).decode("utf-8")
+    logger.info(f"Answer: {answer}")
     
     response = QueryResponse(
         answer=answer,
         image_descriptions=valid_descriptions,
         search_query=search_query,
         top_k=k,
-        audio_base64=audio_base64,
-        tts_provider=provider_used,
-        tts_model=model_used,
+        conversation_id=conversation_id,
+        audio_base64=None,
+        tts_provider=None,
+        tts_model=None,
     )
     
     logger.info("Query processed successfully")
     return response
+
+
+@router.post(
+    "/tts",
+    response_model=QueryResponse,
+    summary="Synthesize text to speech",
+    description="Convert text to speech. If conversation_id is provided and gender is omitted, the pharaoh's gender is auto-detected from conversation history.",
+    dependencies=[]
+)
+async def synthesize_speech(
+    text: str = Form(..., description="Text to synthesize"),
+    gender: Optional[str] = Form(None, description="Voice gender for TTS (female/male). Auto-detected if omitted with conversation_id."),
+    tts_model: Optional[str] = Form(None, description="TTS model override"),
+    conversation_id: Optional[str] = Form(None, description="Conversation ID for auto gender detection"),
+    services: ServiceContainer = Depends(get_services),
+) -> QueryResponse:
+    """
+    Convert text to speech.
+    If conversation_id is provided and gender is not, auto-detect the pharaoh's gender.
+    """
+    if not text or not text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    # Auto-detect gender (Always prioritize detection if service available)
+    if services.llm_service:
+        history = []
+        if conversation_id and services.conversation_service:
+            history = await services.conversation_service.get_history(conversation_id, limit=10)
+        
+        # Detect gender using text and available history
+        detected_gender = services.llm_service.detect_gender(history, text_to_speak=text)
+        logger.info(f"Auto-detected gender: {detected_gender} (Provided: {gender})")
+        
+        # Use detected gender
+        gender = detected_gender
+
+    provider_used = "deepgram"
+    
+    # Handle model selection based on gender
+    if tts_model:
+        model_used = tts_model
+    elif gender and gender.lower() == "male":
+        model_used = "aura-helios-en"
+    else:
+        model_used = settings.deepgram_tts_model
+    
+    # Preprocess text
+    text_clean = text.replace("*", "").strip()
+    
+    try:
+        audio_out = services.tts_service.synthesize(
+            text=text_clean,
+            provider=provider_used,
+            voice=gender,
+            model=model_used,
+        )
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"TTS failed: {e}")
+        raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
+        
+    audio_base64 = base64.b64encode(audio_out).decode("utf-8")
+    
+    return QueryResponse(
+        answer=text,
+        search_query=text,
+        top_k=0,
+        conversation_id=conversation_id,
+        audio_base64=audio_base64,
+        tts_provider=provider_used,
+        tts_model=model_used
+    )
+
+
+@router.post(
+    "/generate-image",
+    summary="Generate an image from conversation context",
+    description="Uses GPT4All to summarize conversation history into a prompt, then Stable Diffusion to generate an image.",
+    dependencies=[]
+)
+async def generate_image(
+    request: GenerateImageRequest = Body(..., description="Request body"),
+    services: ServiceContainer = Depends(get_services),
+):
+    """
+    Generate an image based on the current conversation context.
+    """
+    conversation_id = request.conversation_id
+    
+    # 1. Get history
+    history = []
+    if services.conversation_service:
+        history = await services.conversation_service.get_history(conversation_id, limit=10)
+    
+    if not history:
+        logger.warning(f"No history found for {conversation_id}, using default prompt")
+        # Ensure we have at least something if history is empty
+        history = [{"role": "user", "content": "Ancient Egypt Pharaoh"}]
+
+    if not services.image_gen_service:
+        raise HTTPException(status_code=501, detail="Image generation service not available")
+
+    # 2. Generate prompt
+    try:
+        prompt = services.image_gen_service.generate_prompt_from_context(history)
+    except Exception as e:
+        logger.error(f"Prompt generation failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate image prompt")
+    
+    # 3. Generate image
+    try:
+        image_base64 = services.image_gen_service.generate_image(prompt)
+        if not image_base64:
+             raise HTTPException(status_code=500, detail="Stable Diffusion failed to generate image")
+    except Exception as e:
+        logger.error(f"Image generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
+
+    return {
+        "conversation_id": conversation_id,
+        "prompt_used": prompt,
+        "image_base64": image_base64
+    }

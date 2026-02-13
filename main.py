@@ -24,11 +24,21 @@ from app.services import (
     STTService,
     TTSService,
     RerankerService,
+    DatabaseService,
+    AuthService,
+    PlacesService,
+    UberService,
+    ConversationService,
+    CloudinaryService,
+    ImageGenerationService,
 )
 from app.routers import (
     query_router,
     health_router,
     audio_router,
+    auth_router,
+    pharaohs_router,
+    conversations_router,
     ServiceContainer,
     set_service_container,
 )
@@ -85,6 +95,41 @@ async def lifespan(app: FastAPI):
         reranker_service = RerankerService(settings)
         reranker_service.initialize()
         
+        # 8. Database Service
+        logger.info("Connecting to MongoDB...")
+        database_service = DatabaseService(settings)
+        database_service.connect()
+        
+        # 9. Auth Service
+        auth_service = AuthService(settings, database_service)
+        
+        # 10. Places Service
+        places_service = PlacesService(settings)
+        logger.info("Google Places service initialized")
+
+        # 11. Uber Service
+        logger.info("11. Initializing UberService ...")
+        uber_service = UberService(settings)
+        logger.info("Uber service initialized")
+
+        # 12. Conversation Service
+        logger.info("12. Initializing ConversationService ...")
+        conversation_service = ConversationService(settings, database_service)
+        logger.info("Conversation service initialized")
+        
+        # 13. Cloudinary Service
+        logger.info("13. Initializing CloudinaryService ...")
+        cloudinary_service = CloudinaryService(settings)
+        # Initialization happens lazily on first use, or we can force it here if we want to check creds early
+        # cloudinary_service._initialize() 
+        logger.info("Cloudinary service prepared")
+        
+        # 14. Image Generation Service
+        logger.info("14. Initializing ImageGenerationService ...")
+        image_gen_service = ImageGenerationService(settings)
+        # Initialization happens lazily
+        logger.info("Image generation service prepared")
+
         # Create service container and inject into routers
         container = ServiceContainer(
             embedding_service=embedding_service,
@@ -94,6 +139,13 @@ async def lifespan(app: FastAPI):
             reranker_service=reranker_service,
             stt_service=stt_service,
             tts_service=tts_service,
+            database_service=database_service,
+            auth_service=auth_service,
+            places_service=places_service,
+            uber_service=uber_service,
+            conversation_service=conversation_service,
+            cloudinary_service=cloudinary_service,
+            image_gen_service=image_gen_service,
         )
         set_service_container(container)
         
@@ -111,6 +163,9 @@ async def lifespan(app: FastAPI):
     finally:
         logger.info("Shutting down Cross-Lingual RAG API...")
         logger.info("Cleanup complete")
+        
+        if 'database_service' in locals():
+            database_service.close()
 
 
 # ── FastAPI Application ─────────────────────────────────────────────────────
@@ -134,6 +189,9 @@ app.add_middleware(
 app.include_router(health_router, tags=["Health"])
 app.include_router(query_router, tags=["Query"])
 app.include_router(audio_router, tags=["Audio"])
+app.include_router(auth_router, tags=["Auth"])
+app.include_router(pharaohs_router, tags=["Pharaohs"])
+app.include_router(conversations_router, tags=["Conversations"])
 
 
 # ── Application Entry Point ─────────────────────────────────────────────────

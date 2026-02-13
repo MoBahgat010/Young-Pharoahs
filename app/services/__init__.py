@@ -8,6 +8,13 @@ from app.services.stt_service import STTService
 from app.services.tts_service import TTSService
 
 from app.services.reranker_service import RerankerService
+from app.services.database import DatabaseService
+from app.services.auth_service import AuthService
+from app.services.places_service import PlacesService
+from app.services.uber_service import UberService
+from app.services.conversation_service import ConversationService
+from app.services.cloudinary_service import CloudinaryService
+from app.services.image_gen_service import ImageGenerationService
 
 __all__ = [
     "EmbeddingService",
@@ -17,4 +24,12 @@ __all__ = [
     "STTService",
     "TTSService",
     "RerankerService",
+    "DatabaseService",
+    "AuthService",
+    "PlacesService",
+    "UberService",
+    "ConversationService",
+    "ConversationService",
+    "CloudinaryService",
+    "ImageGenerationService",
 ]
