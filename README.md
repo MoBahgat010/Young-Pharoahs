@@ -1,250 +1,205 @@
-# Pharaohs RAG Server
+# Young Pharaohs
 
-Cross-lingual RAG system: **Text + Images → Gemini Vision → BGE-M3 → Pinecone → Gemini LLM → Answer**
+An interactive AR-powered mobile app that brings ancient Egyptian pharaohs to life. Users explore pharaohs, chat with them using AI-driven conversations, view their monuments in AR, and discover nearby places.
 
-## Setup
+## Project Structure
+
+```
+Young-Pharoahs/
+├── app/                          # FastAPI backend (Python)
+│   ├── routers/                  # API endpoints
+│   ├── services/                 # Business logic (LLM, TTS, STT, RAG, etc.)
+│   ├── models/                   # Pydantic request/response models
+│   └── utils/                    # Helpers (prompts, image processing)
+├── RamsesARProject/
+│   ├── MyMobileApp/              # React Native mobile app (TypeScript)
+│   │   ├── src/
+│   │   │   ├── screens/          # App screens
+│   │   │   ├── components/       # Reusable UI components
+│   │   │   ├── services/         # API & audio services
+│   │   │   ├── data/             # Static pharaoh data
+│   │   │   └── types/            # TypeScript type definitions
+│   │   ├── android/              # Android native project
+│   │   └── ios/                  # iOS native project
+│   └── unity/
+│       └── RamsesAR/             # Unity AR project (C#)
+│           ├── Assets/Scripts/   # AR logic (ARManager, CharacterPlacer, etc.)
+│           ├── Assets/Scenes/    # Unity scenes
+│           ├── Assets/Models/    # 3D pharaoh models
+│           └── ProjectSettings/  # Unity config
+├── main.py                       # Server entry point
+├── ingest.py                     # PDF ingestion into vector store
+└── requirements.txt              # Python dependencies
+```
+
+---
+
+## Tech Stack
+
+| Layer             | Technology                                      |
+| ----------------- | ----------------------------------------------- |
+| **Mobile App**    | React Native 0.83, TypeScript, React Navigation |
+| **AR Engine**     | Unity (C#), integrated via `react-native-unity` |
+| **Backend**       | FastAPI (Python), Uvicorn                       |
+| **LLM / Vision**  | Google Gemini (RAG + Vision + query rewriting)  |
+| **Embeddings**    | BGE-M3 (1024-dim)                               |
+| **Vector Store**  | Pinecone                                        |
+| **Database**      | MongoDB (pharaohs, users, conversations)        |
+| **Speech**        | Deepgram (STT + TTS), ElevenLabs (TTS)          |
+| **Image Gen**     | GPT4All (Mistral 7B) + Stable Diffusion         |
+| **Nearby Places** | Google Places API                               |
+
+---
+
+## Mobile App
+
+### Screens
+
+| Screen                      | Description                                           |
+| --------------------------- | ----------------------------------------------------- |
+| **HomeScreen**              | Landing page with pharaoh discovery                   |
+| **KingsScreen**             | Browse all pharaohs with search                       |
+| **ChatScreen**              | AI-powered conversation with a pharaoh (text + voice) |
+| **ConversationsListScreen** | View and manage past conversations                    |
+| **MonumentDetailsScreen**   | Monument info, location, nearby restaurants & hotels  |
+| **LocationsScreen**         | Map view of monument locations                        |
+| **ARScreen**                | Launch Unity AR experience to view 3D pharaoh models  |
+
+### Key Features
+
+- **Voice Chat** — Record audio → STT → RAG → TTS → playback, all in one flow
+- **Image Recognition** — Upload a photo of a monument/statue → AI identifies the pharaoh
+- **Multi-turn Conversations** — Context-aware follow-ups with automatic pharaoh persona switching
+- **AR Experience** — Place 3D animated pharaoh characters in the real world via Unity
+- **Nearby Places** — Discover restaurants and hotels near each monument (Google Places)
+
+### Setup
 
 ```bash
-cd server
+cd RamsesARProject/MyMobileApp
+npm install
+
+# Android
+npx react-native run-android
+
+# iOS
+cd ios && pod install && cd ..
+npx react-native run-ios
+```
+
+> **Unity Integration:** The Unity AR project must be exported to `android/unity/` (Android) before building. See the [Unity Export Guide](https://github.com/nicmadrid/react-native-unity#readme) for details.
+
+---
+
+## Unity AR Project
+
+Located in `RamsesARProject/unity/RamsesAR/`.
+
+### Scripts
+
+| Script                   | Purpose                                                       |
+| ------------------------ | ------------------------------------------------------------- |
+| `ARManager.cs`           | Core AR session manager, handles plane detection and tracking |
+| `CharacterPlacer.cs`     | Places and positions 3D pharaoh models on detected surfaces   |
+| `AudioController.cs`     | Manages audio playback for AR narration                       |
+| `UnityMessageManager.cs` | Bridge for React Native ↔ Unity communication                 |
+
+### Opening in Unity
+
+1. Open Unity Hub → **Add** → select `RamsesARProject/unity/RamsesAR/`
+2. Open with Unity 2022.3 LTS or later
+3. Install required packages from `Packages/manifest.json` (auto-resolved)
+
+---
+
+## Backend Server
+
+### Setup
+
+```bash
 pip install -r requirements.txt
 
 # Copy and fill in your API keys
 cp .env.example .env
 ```
 
-## 1. Ingest PDFs
+### Environment Variables
 
-Put your PDFs in a folder, then run:
+```env
+GEMINI_API_KEY=           # Google Gemini API key
+PINECONE_API_KEY=         # Pinecone vector store
+MONGODB_URI=              # MongoDB connection string
+DEEPGRAM_API_KEY=         # Deepgram STT/TTS
+ELEVENLABS_API_KEY=       # ElevenLabs TTS (optional)
+GOOGLE_PLACES_API_KEY=    # Google Places API
+CLOUDINARY_URL=           # Image hosting
+```
+
+### Ingest PDFs
 
 ```bash
 python ingest.py --folder ../  # or any folder with PDFs
 ```
 
-Options:
-| Flag | Default | Description |
-|---|---|---|
-| `--folder` | _required_ | Path to folder with PDFs |
-
-## 2. Start the Server
+### Start the Server
 
 ```bash
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Docs available at: `http://localhost:8000/docs`
 
-## 3. API Endpoints
+---
+
+## API Endpoints
 
 ### Authentication
 
-#### `POST /auth/signup`
+| Method | Endpoint       | Description            |
+| ------ | -------------- | ---------------------- |
+| `POST` | `/auth/signup` | Register a new user    |
+| `POST` | `/auth/signin` | Login → `access_token` |
 
-Register a new user to access protected endpoints.
+### Pharaohs
 
-**Request Body (JSON):**
+| Method | Endpoint                                            | Description                 |
+| ------ | --------------------------------------------------- | --------------------------- |
+| `GET`  | `/pharaohs`                                         | List all pharaohs           |
+| `GET`  | `/pharaohs/search?name=ramses`                      | Search by name              |
+| `GET`  | `/pharaohs/{king_name}`                             | Pharaoh details + monuments |
+| `GET`  | `/pharaohs/{king_name}/monuments/{monument}/nearby` | Nearby restaurants & hotels |
 
-```json
-{
-  "username": "string",
-  "age": 0,
-  "country": "string",
-  "password": "string (max 72 chars)"
-}
-```
+### RAG & Chat
 
-**Response (JSON):**
+| Method | Endpoint           | Description                                                     |
+| ------ | ------------------ | --------------------------------------------------------------- |
+| `POST` | `/query`           | Text query with RAG (supports `conversation_id` for multi-turn) |
+| `POST` | `/voice-query`     | Audio in → transcript + RAG answer + audio out                  |
+| `POST` | `/describe-images` | Upload images → pharaoh identification                          |
+| `POST` | `/tts`             | Text-to-speech with auto gender detection                       |
+| `POST` | `/generate-image`  | Generate scene image from conversation context                  |
 
-```json
-{
-  "username": "string",
-  "age": 0,
-  "country": "string",
-  "id": "string (user_id)"
-}
-```
+### Conversations
 
-#### `POST /auth/signin`
-
-Login to receive an access token.
-
-**Request Body (JSON):**
-
-```json
-{
-  "username": "string",
-  "password": "string"
-}
-```
-
-**Response (JSON):**
-
-```json
-{
-  "access_token": "string (jwt)",
-  "token_type": "bearer"
-}
-```
+| Method   | Endpoint              | Description                                  |
+| -------- | --------------------- | -------------------------------------------- |
+| `GET`    | `/conversations`      | List conversations with last message preview |
+| `GET`    | `/conversations/{id}` | Full conversation history                    |
+| `POST`   | `/conversations`      | Create new conversation                      |
+| `DELETE` | `/conversations/{id}` | Delete a conversation                        |
 
 ---
-
-### Public Endpoints
-
-All endpoints are now public and do not require authentication.
-
-#### `GET /pharaohs`
-
-List all pharaohs with basic information.
-
-**Response (JSON):**
-
-```json
-{
-  "pharaohs": [
-    {
-      "king_name": "Ramses II"
-    },
-    ...
-  ]
-}
-```
-
-#### `GET /pharaohs/search`
-
-Search for a pharaoh by name.
-
-**Parameters:**
-
-- `q` (query, string): Search query (case-insensitive partial match)
-
-**Response (JSON):**
-
-```json
-{
-  "results": [
-    {
-      "king_name": "Ramses II"
-    }
-  ]
-}
-```
-
-#### `GET /pharaohs/{king_name}`
-
-Get details about a specific Pharaoh.
-
-**Parameters:**
-
-- `king_name` (path, string): Name of the King (e.g., "Ramses II")
-
-**Response (JSON):**
-
-```json
-{
-  "king_name": "Ramses II",
-  "monuments": [
-    {
-      "name": "The Great Temple of Abu Simbel",
-      "details": "...",
-      "location_name": "Abu Simbel",
-      "location_url": "...",
-      "image_url": "...",
-      "location_image_url": "..."
-    }
-  ]
-}
-```
-
-#### `POST /describe-images` (Multipart)
-
-Upload images to get their textual descriptions from the vision model.
-
-**Request (Multipart/Form-Data):**
-
-- `images`: List of image files (jpg, png, etc.)
-
-**Response (JSON):**
-
-```json
-{
-  "descriptions": ["Ramses II"]
-}
-```
-
-#### `POST /query` (JSON)
-
-Submit a RAG query with text and optional image descriptions.
-
-**Request Body (JSON):**
-
-```json
-{
-  "prompt": "Who is this king?",
-  "image_descriptions": ["Ramses II"],
-  "gender": "female"
-}
-```
-
-- `image_descriptions`: List of strings (outputs from `/describe-images`).
-- `gender`: `male` or `female`.
-
-**Response (JSON):**
-
-```json
-{
-  "answer": "This is Ramses II...",
-  "image_descriptions": [...],
-  "search_query": "...",
-  "top_k": 5,
-  "audio_base64": null,
-  "tts_provider": null,
-  "tts_model": null
-}
-```
-
-#### `POST /voice-query` (Multipart)
-
-Send audio file to perform RAG and get audio response.
-
-**Request (Multipart/Form-Data):**
-
-- `audio`: Audio file (wav, mp3, m4a)
-- `gender`: Optional `male` or `female`
-- `tts_provider`: Optional `elevenlabs` or `deepgram`
-- `tts_model`: Optional model override
-- `stt_model`: Optional STT model override
-
-**Response (JSON):**
-
-```json
-{
-  "transcript": "Tell me about Ramses II",
-  "answer": "Ramses II was...",
-  "audio_base64": "<base64_string>",
-  "tts_provider": "elevenlabs",
-  "tts_model": "eleven_multilingual_v2",
-  "search_query": "...",
-  "top_k": 5
-}
-```
 
 ## Architecture
 
 ```
- User (text / images / voice)
-        │
-        ▼
+ Mobile App (React Native)
+         │
+         ├── AR Screen ──── Unity Engine (3D models + plane detection)
+         │
+         ▼
  ┌──────────────────────────────────────────────────────────────┐
  │                      FastAPI Server                          │
- │                                                              │
- │  Routers:                                                    │
- │  ┌──────────┐ ┌───────────┐ ┌──────────┐ ┌──────────────┐   │
- │  │ /query   │ │ /voice-   │ │/pharaohs │ │/conversations│   │
- │  │/describe │ │  query    │ │ /nearby  │ │              │   │
- │  │ /tts     │ │           │ │          │ │              │   │
- │  │/gen-image│ │           │ │          │ │              │   │
- │  └────┬─────┘ └─────┬─────┘ └────┬─────┘ └──────┬───────┘   │
- │       └─────────────┴────────────┴───────────────┘           │
- │                    Service Layer (14 services)                │
  │                                                              │
  │  ┌───────────────────────────────────────────────────────┐   │
  │  │ AI / ML Services                                      │   │
@@ -264,7 +219,7 @@ Send audio file to perform RAG and get audio response.
  │  │ External Integrations                                 │   │
  │  │  Google Places ───── nearby restaurants & hotels       │   │
  │  │  Uber ────────────── deep links to monument locations  │   │
- │  │  Cloudinary ──────── image hosting (base64 fallback)   │   │
+ │  │  Cloudinary ──────── image hosting                     │   │
  │  └───────────────────────────────────────────────────────┘   │
  └──────────────────────┬───────────────────────────────────────┘
                         │
@@ -273,7 +228,6 @@ Send audio file to perform RAG and get audio response.
     ┌─────────────┐          ┌──────────────┐
     │  Pinecone   │          │   MongoDB     │
     │  (vectors)  │          │   (data)      │
-    │             │          │               │
     │  BGE-M3     │          │  pharaohs     │
     │  embeddings │          │  users        │
     │             │          │  conversations │
@@ -299,27 +253,8 @@ User prompt + (optional images / conversation_id)
    Gemini LLM (RAG generation with conversation history)
    Pharaoh speaks in first-person, auto-switches persona
         │
-        ├── Store messages → MongoDB (with image_urls + audio)
         ▼
-   Response (answer + conversation_id)
-```
-
-### Image Generation Pipeline
-
-```
-POST /generate-image { conversation_id }
-        │
-        ▼
-   Load last 10 messages from MongoDB
-        │
-        ▼
-   GPT4All (Mistral 7B) → cinematic visual prompt
-        │
-        ▼
-   SD-Turbo (Stable Diffusion) → PNG image
-        │
-        ▼
-   Response (image_base64 + prompt_used)
+   Response (answer + conversation_id + optional audio)
 ```
 
 ### Voice Query Pipeline
@@ -331,12 +266,8 @@ Audio file → Deepgram STT → transcript
    RAG Pipeline (same as above)
         │
         ▼
-   Auto gender detection (Gemini LLM)
+   Auto gender detection (Gemini LLM) → Deepgram TTS → audio response
         │
-        ▼
-   Deepgram TTS → audio response
-        │
-        ├── Store audio in MongoDB conversation
         ▼
    Response (transcript + answer + audio_base64)
 ```
