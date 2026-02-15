@@ -23,7 +23,7 @@ python ingest.py --folder ../  # or any folder with PDFs
 Options:
 | Flag | Default | Description |
 |---|---|---|
-| `--folder` | *required* | Path to folder with PDFs |
+| `--folder` | _required_ | Path to folder with PDFs |
 
 ## 2. Start the Server
 
@@ -38,9 +38,11 @@ Docs available at: `http://localhost:8000/docs`
 ### Authentication
 
 #### `POST /auth/signup`
+
 Register a new user to access protected endpoints.
 
 **Request Body (JSON):**
+
 ```json
 {
   "username": "string",
@@ -51,6 +53,7 @@ Register a new user to access protected endpoints.
 ```
 
 **Response (JSON):**
+
 ```json
 {
   "username": "string",
@@ -61,9 +64,11 @@ Register a new user to access protected endpoints.
 ```
 
 #### `POST /auth/signin`
+
 Login to receive an access token.
 
 **Request Body (JSON):**
+
 ```json
 {
   "username": "string",
@@ -72,6 +77,7 @@ Login to receive an access token.
 ```
 
 **Response (JSON):**
+
 ```json
 {
   "access_token": "string (jwt)",
@@ -82,12 +88,15 @@ Login to receive an access token.
 ---
 
 ### Public Endpoints
+
 All endpoints are now public and do not require authentication.
 
 #### `GET /pharaohs`
+
 List all pharaohs with basic information.
 
 **Response (JSON):**
+
 ```json
 {
   "pharaohs": [
@@ -100,12 +109,15 @@ List all pharaohs with basic information.
 ```
 
 #### `GET /pharaohs/search`
+
 Search for a pharaoh by name.
 
 **Parameters:**
+
 - `q` (query, string): Search query (case-insensitive partial match)
 
 **Response (JSON):**
+
 ```json
 {
   "results": [
@@ -117,12 +129,15 @@ Search for a pharaoh by name.
 ```
 
 #### `GET /pharaohs/{king_name}`
+
 Get details about a specific Pharaoh.
 
 **Parameters:**
+
 - `king_name` (path, string): Name of the King (e.g., "Ramses II")
 
 **Response (JSON):**
+
 ```json
 {
   "king_name": "Ramses II",
@@ -140,37 +155,40 @@ Get details about a specific Pharaoh.
 ```
 
 #### `POST /describe-images` (Multipart)
+
 Upload images to get their textual descriptions from the vision model.
 
 **Request (Multipart/Form-Data):**
+
 - `images`: List of image files (jpg, png, etc.)
 
 **Response (JSON):**
+
 ```json
 {
-  "descriptions": [
-    "Ramses II"
-  ]
+  "descriptions": ["Ramses II"]
 }
 ```
 
 #### `POST /query` (JSON)
+
 Submit a RAG query with text and optional image descriptions.
 
 **Request Body (JSON):**
+
 ```json
 {
   "prompt": "Who is this king?",
-  "image_descriptions": [
-    "Ramses II"
-  ],
+  "image_descriptions": ["Ramses II"],
   "gender": "female"
 }
 ```
-*   `image_descriptions`: List of strings (outputs from `/describe-images`).
-*   `gender`: `male` or `female`.
+
+- `image_descriptions`: List of strings (outputs from `/describe-images`).
+- `gender`: `male` or `female`.
 
 **Response (JSON):**
+
 ```json
 {
   "answer": "This is Ramses II...",
@@ -184,9 +202,11 @@ Submit a RAG query with text and optional image descriptions.
 ```
 
 #### `POST /voice-query` (Multipart)
+
 Send audio file to perform RAG and get audio response.
 
 **Request (Multipart/Form-Data):**
+
 - `audio`: Audio file (wav, mp3, m4a)
 - `gender`: Optional `male` or `female`
 - `tts_provider`: Optional `elevenlabs` or `deepgram`
@@ -194,6 +214,7 @@ Send audio file to perform RAG and get audio response.
 - `stt_model`: Optional STT model override
 
 **Response (JSON):**
+
 ```json
 {
   "transcript": "Tell me about Ramses II",
@@ -209,30 +230,113 @@ Send audio file to perform RAG and get audio response.
 ## Architecture
 
 ```
-User (text + images)
-       │
-       ▼
-  ┌─────────────┐    images    ┌──────────────────┐
-  │  FastAPI     │───────────▶ │  Gemini Vision    │
-  │  /query      │◀────────── │  (image → text)   │
-  └─────┬───────┘             └──────────────────┘
-        │
-        │  query + image descriptions
-        ▼
-  ┌─────────────┐
-  │  BGE-M3     │  (text → 1024-dim vector)
-  └─────┬───────┘
+ User (text / images / voice)
         │
         ▼
-  ┌─────────────┐
-  │  Pinecone   │  (similarity search)
-  └─────┬───────┘
-        │  top-k chunks
-        ▼
-  ┌─────────────┐
-  │  Gemini LLM │  (RAG generation)
-  └─────┬───────┘
+ ┌──────────────────────────────────────────────────────────────┐
+ │                      FastAPI Server                          │
+ │                                                              │
+ │  Routers:                                                    │
+ │  ┌──────────┐ ┌───────────┐ ┌──────────┐ ┌──────────────┐   │
+ │  │ /query   │ │ /voice-   │ │/pharaohs │ │/conversations│   │
+ │  │/describe │ │  query    │ │ /nearby  │ │              │   │
+ │  │ /tts     │ │           │ │          │ │              │   │
+ │  │/gen-image│ │           │ │          │ │              │   │
+ │  └────┬─────┘ └─────┬─────┘ └────┬─────┘ └──────┬───────┘   │
+ │       └─────────────┴────────────┴───────────────┘           │
+ │                    Service Layer (14 services)                │
+ │                                                              │
+ │  ┌───────────────────────────────────────────────────────┐   │
+ │  │ AI / ML Services                                      │   │
+ │  │  Gemini Vision ──── image → pharaoh name              │   │
+ │  │  BGE-M3 ─────────── text → 1024-dim embedding         │   │
+ │  │  Gemini LLM ──────── RAG + query rewrite + gender det │   │
+ │  │  Reranker ────────── rerank search results             │   │
+ │  │  GPT4All (Mistral) ─ conversation → image prompt      │   │
+ │  │  SD-Turbo ────────── prompt → generated image          │   │
+ │  └───────────────────────────────────────────────────────┘   │
+ │  ┌───────────────────────────────────────────────────────┐   │
+ │  │ Speech Services                                       │   │
+ │  │  Deepgram STT ────── audio → text                     │   │
+ │  │  Deepgram TTS ────── text → audio (auto gender)       │   │
+ │  └───────────────────────────────────────────────────────┘   │
+ │  ┌───────────────────────────────────────────────────────┐   │
+ │  │ External Integrations                                 │   │
+ │  │  Google Places ───── nearby restaurants & hotels       │   │
+ │  │  Uber ────────────── deep links to monument locations  │   │
+ │  │  Cloudinary ──────── image hosting (base64 fallback)   │   │
+ │  └───────────────────────────────────────────────────────┘   │
+ └──────────────────────┬───────────────────────────────────────┘
+                        │
+           ┌────────────┴────────────┐
+           ▼                         ▼
+    ┌─────────────┐          ┌──────────────┐
+    │  Pinecone   │          │   MongoDB     │
+    │  (vectors)  │          │   (data)      │
+    │             │          │               │
+    │  BGE-M3     │          │  pharaohs     │
+    │  embeddings │          │  users        │
+    │             │          │  conversations │
+    └─────────────┘          └──────────────┘
+```
+
+### Query Pipeline
+
+```
+User prompt + (optional images / conversation_id)
+        │
+        ├── images? ────────── Gemini Vision → pharaoh descriptions
+        ├── conversation_id? ─ MongoDB → load history
         │
         ▼
-     Response
+   Query Rewriting (Gemini LLM)
+   "his temples" + history → "Ramses II temples"
+        │
+        ▼
+   BGE-M3 Embedding → Pinecone Search (top-k) → Reranker (top-8)
+        │
+        ▼
+   Gemini LLM (RAG generation with conversation history)
+   Pharaoh speaks in first-person, auto-switches persona
+        │
+        ├── Store messages → MongoDB (with image_urls + audio)
+        ▼
+   Response (answer + conversation_id)
+```
+
+### Image Generation Pipeline
+
+```
+POST /generate-image { conversation_id }
+        │
+        ▼
+   Load last 10 messages from MongoDB
+        │
+        ▼
+   GPT4All (Mistral 7B) → cinematic visual prompt
+        │
+        ▼
+   SD-Turbo (Stable Diffusion) → PNG image
+        │
+        ▼
+   Response (image_base64 + prompt_used)
+```
+
+### Voice Query Pipeline
+
+```
+Audio file → Deepgram STT → transcript
+        │
+        ▼
+   RAG Pipeline (same as above)
+        │
+        ▼
+   Auto gender detection (Gemini LLM)
+        │
+        ▼
+   Deepgram TTS → audio response
+        │
+        ├── Store audio in MongoDB conversation
+        ▼
+   Response (transcript + answer + audio_base64)
 ```
