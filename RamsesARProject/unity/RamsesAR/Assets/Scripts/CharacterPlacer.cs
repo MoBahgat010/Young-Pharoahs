@@ -1,0 +1,402 @@
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
+using System.Collections.Generic;
+
+/// <summary>
+/// Handles AR plane detection and character placement.
+/// Uses three tiers: (1) confirmed plane polygon, (2) any AR-detected surface,
+/// (3) estimated floor fallback after timeout if detection fails.
+/// </summary>
+public class CharacterPlacer : MonoBehaviour
+{
+    [Header("References")]
+    [SerializeField] private ARRaycastManager raycastManager;
+    [SerializeField] private ARPlaneManager planeManager;
+    [SerializeField] private GameObject placementIndicator;
+    [SerializeField] private GameObject characterPrefab;
+    
+    [Header("Settings")]
+    [SerializeField] private float characterScale = 1.875f;
+    [SerializeField] private float fallbackDistance = 2f; // meters in front of camera
+    [SerializeField] private float fallbackTimeout = 8f;  // seconds before floor-estimation kicks in
+    [Tooltip("Model correction rotation. X=-90 stands up Z-up models. Y adjusts facing direction (try 0, 90, 180, -90 if model faces wrong way). Z=roll.")]
+    [SerializeField] private Vector3 prefabRotationOffset = new Vector3(-90f, 0f, 0f);
+    
+    private List<ARRaycastHit> hits = new List<ARRaycastHit>();
+    private GameObject placedCharacter;
+    private bool isPlacementValid = false;
+    private Pose placementPose;
+    
+    private bool hasLoggedReady = false;
+    private bool hasLoggedFallback = false;
+    private float logTimer = 0f;
+    private float timeSinceStart = 0f;
+    private string activeMethod = "";
+    private string pendingAudioUrl = "";
+
+    // Instruction UI (created programmatically)
+    private Canvas instructionCanvas;
+    private Text instructionText;
+    private Text scanningText;
+    private Text methodText;
+
+    private void Start()
+    {
+        Debug.Log("CharacterPlacer: Start() called");
+        CreateInstructionUI();
+        
+        // Log subsystem info
+        if (planeManager != null)
+        {
+            var subsystem = planeManager.subsystem;
+            Debug.Log($"CharacterPlacer: PlaneManager subsystem={(subsystem != null ? "EXISTS" : "NULL")}, running={(subsystem != null && subsystem.running)}");
+        }
+    }
+
+    /// <summary>
+    /// Creates the on-screen instruction UI programmatically.
+    /// </summary>
+    private void CreateInstructionUI()
+    {
+        GameObject canvasObj = new GameObject("InstructionCanvas");
+        instructionCanvas = canvasObj.AddComponent<Canvas>();
+        instructionCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        instructionCanvas.sortingOrder = 100;
+        var scaler = canvasObj.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1080, 1920);
+        canvasObj.AddComponent<GraphicRaycaster>();
+
+        // --- "Scanning..." label (shown while looking for surfaces) ---
+        GameObject scanObj = new GameObject("ScanningText");
+        scanObj.transform.SetParent(canvasObj.transform, false);
+        scanningText = scanObj.AddComponent<Text>();
+        scanningText.text = "Scanning for surfaces\u2026";
+        scanningText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (scanningText.font == null) scanningText.font = Font.CreateDynamicFontFromOSFont("Arial", 32);
+        scanningText.fontSize = 32;
+        scanningText.color = new Color(1f, 1f, 1f, 0.85f);
+        scanningText.alignment = TextAnchor.MiddleCenter;
+        var scanRect = scanObj.GetComponent<RectTransform>();
+        scanRect.anchorMin = new Vector2(0.1f, 0.42f);
+        scanRect.anchorMax = new Vector2(0.9f, 0.52f);
+        scanRect.offsetMin = Vector2.zero;
+        scanRect.offsetMax = Vector2.zero;
+
+        // --- "TAP TO START" label (shown once a surface is found) ---
+        GameObject textObj = new GameObject("TapToStartText");
+        textObj.transform.SetParent(canvasObj.transform, false);
+        instructionText = textObj.AddComponent<Text>();
+        instructionText.text = "TAP TO PLACE";
+        instructionText.font = scanningText.font;
+        instructionText.fontSize = 54;
+        instructionText.fontStyle = FontStyle.Bold;
+        instructionText.color = new Color(0.957f, 0.753f, 0.145f, 1f); // Gold #F4C025
+        instructionText.alignment = TextAnchor.MiddleCenter;
+        var outline = textObj.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
+        outline.effectDistance = new Vector2(2, -2);
+        var textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0.1f, 0.4f);
+        textRect.anchorMax = new Vector2(0.9f, 0.6f);
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        // --- Method debug label (top of screen, shows which detection tier is active) ---
+        GameObject methodObj = new GameObject("MethodText");
+        methodObj.transform.SetParent(canvasObj.transform, false);
+        methodText = methodObj.AddComponent<Text>();
+        methodText.text = "";
+        methodText.font = scanningText.font;
+        methodText.fontSize = 28;
+        methodText.color = new Color(0f, 1f, 0f, 0.9f); // green
+        methodText.alignment = TextAnchor.UpperCenter;
+        var methodRect = methodObj.GetComponent<RectTransform>();
+        methodRect.anchorMin = new Vector2(0.05f, 0.88f);
+        methodRect.anchorMax = new Vector2(0.95f, 0.98f);
+        methodRect.offsetMin = Vector2.zero;
+        methodRect.offsetMax = Vector2.zero;
+
+        // Start: show scanning hint, hide tap instruction
+        scanningText.gameObject.SetActive(true);
+        instructionText.gameObject.SetActive(false);
+        Debug.Log("CharacterPlacer: Instruction UI created");
+    }
+
+    private void Update()
+    {
+        timeSinceStart += Time.deltaTime;
+        
+        if (raycastManager == null)
+        {
+            if (!hasLoggedReady)
+            {
+                Debug.LogError("CharacterPlacer: raycastManager is NULL!");
+                hasLoggedReady = true;
+            }
+            return;
+        }
+        
+        // Periodic status log every 3 seconds
+        logTimer += Time.deltaTime;
+        if (logTimer > 3f)
+        {
+            logTimer = 0f;
+            
+            // AR Session diagnostics
+            var sessionState = ARSession.state;
+            int planeCount = planeManager != null ? planeManager.trackables.count : -1;
+            string detectionMode = planeManager != null ? planeManager.currentDetectionMode.ToString() : "N/A";
+            bool pmEnabled = planeManager != null && planeManager.enabled;
+            bool rmEnabled = raycastManager != null && raycastManager.enabled;
+            
+            // Subsystem diagnostics
+            string subsystemInfo = "N/A";
+            if (planeManager != null)
+            {
+                var sub = planeManager.subsystem;
+                subsystemInfo = sub != null ? $"running={sub.running}" : "NULL";
+            }
+            
+            Debug.Log($"CharacterPlacer Status: prefab={(characterPrefab != null ? characterPrefab.name : "NULL")}, placementValid={isPlacementValid}, placed={placedCharacter != null}, time={timeSinceStart:F0}s");
+            Debug.Log($"AR Diagnostics: SessionState={sessionState}, PlaneCount={planeCount}, DetectionMode={detectionMode}, PM.enabled={pmEnabled}, RM.enabled={rmEnabled}, Subsystem={subsystemInfo}");
+            
+            // Try all trackable types for raycast
+            Vector2 screenCenter = new Vector2(Screen.width / 2f, Screen.height / 2f);
+            bool hitsAll = raycastManager.Raycast(screenCenter, hits, TrackableType.All);
+            bool hitsPlane = raycastManager.Raycast(screenCenter, hits, TrackableType.PlaneWithinPolygon);
+            bool hitsPoint = raycastManager.Raycast(screenCenter, hits, TrackableType.FeaturePoint);
+            Debug.Log($"Raycast test: All={hitsAll}, Plane={hitsPlane}, FeaturePoint={hitsPoint}");
+        }
+        
+        UpdatePlacementIndicator();
+        HandleTouchInput();
+    }
+    
+    private void UpdatePlacementIndicator()
+    {
+        Vector2 screenCenter = new Vector2(Screen.width / 2f, Screen.height / 2f);
+        
+        // 1. Best accuracy: confirmed plane polygon
+        if (raycastManager.Raycast(screenCenter, hits, TrackableType.PlaneWithinPolygon))
+        {
+            if (!isPlacementValid)
+                Debug.Log("CharacterPlacer: Plane detected! Tap to place character.");
+            isPlacementValid = true;
+            placementPose = hits[0].pose;
+            activeMethod = "[1] Plane Polygon";
+        }
+        // 2. Good: any AR-detected surface (estimated planes, bounds, feature points, etc.)
+        else if (raycastManager.Raycast(screenCenter, hits, TrackableType.All))
+        {
+            if (!isPlacementValid)
+                Debug.Log($"CharacterPlacer: Surface detected ({hits[0].hitType})! Tap to place.");
+            isPlacementValid = true;
+            placementPose = hits[0].pose;
+            activeMethod = $"[2] AR Surface ({hits[0].hitType})";
+        }
+        // 3. Fallback: estimate floor position after timeout
+        else if (timeSinceStart > fallbackTimeout && Camera.main != null)
+        {
+            EstimateFloorPlacement();
+            activeMethod = "[3] Floor Estimation";
+        }
+        else
+        {
+            isPlacementValid = false;
+            activeMethod = "Scanning...";
+        }
+        
+        if (placementIndicator != null)
+        {
+            placementIndicator.SetActive(isPlacementValid && placedCharacter == null);
+            if (isPlacementValid)
+            {
+                placementIndicator.transform.position = placementPose.position;
+                placementIndicator.transform.rotation = placementPose.rotation;
+            }
+        }
+        
+        // Update instruction overlay
+        if (placedCharacter == null)
+        {
+            if (scanningText != null) scanningText.gameObject.SetActive(!isPlacementValid);
+            if (instructionText != null) instructionText.gameObject.SetActive(isPlacementValid);
+            if (methodText != null) methodText.text = activeMethod;
+        }
+    }
+    
+    /// <summary>
+    /// Estimates a floor position when AR plane detection isn't working.
+    /// Assumes phone is held at ~1.3m height (standing) and places the
+    /// character fallbackDistance meters ahead on the estimated floor.
+    /// </summary>
+    private void EstimateFloorPlacement()
+    {
+        Camera cam = Camera.main;
+        float estimatedFloorY = cam.transform.position.y - 1.3f;
+        
+        Vector3 forward = cam.transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+            forward = Vector3.forward;
+        forward.Normalize();
+        
+        Vector3 floorPos = cam.transform.position + forward * fallbackDistance;
+        floorPos.y = estimatedFloorY;
+        
+        placementPose = new Pose(floorPos, Quaternion.identity);
+        isPlacementValid = true;
+        
+        if (!hasLoggedFallback)
+        {
+            Debug.Log($"CharacterPlacer: Floor estimation fallback active. Estimated floor at y={estimatedFloorY:F2}, placement at {floorPos}");
+            hasLoggedFallback = true;
+        }
+    }
+    
+    private void HandleTouchInput()
+    {
+        if (Input.touchCount == 0) return;
+        
+        Touch touch = Input.GetTouch(0);
+        if (touch.phase != TouchPhase.Began) return;
+        if (placedCharacter != null) return;
+        if (characterPrefab == null)
+        {
+            Debug.LogError("CharacterPlacer: No prefab! Can't place.");
+            return;
+        }
+        
+        Debug.Log($"CharacterPlacer: Touch at {touch.position}. PlacementValid={isPlacementValid}");
+        
+        if (!isPlacementValid)
+        {
+            Debug.Log("CharacterPlacer: No surface detected yet — ignoring tap. Keep scanning!");
+            return;
+        }
+        
+        // Try raycast from touch position for more accurate placement
+        if (raycastManager.Raycast(touch.position, hits, TrackableType.PlaneWithinPolygon))
+        {
+            placementPose = hits[0].pose;
+        }
+        else if (raycastManager.Raycast(touch.position, hits, TrackableType.All))
+        {
+            placementPose = hits[0].pose;
+        }
+        // else: use the current placementPose from UpdatePlacementIndicator (floor estimation)
+        PlaceCharacter();
+    }
+    
+    private void PlaceCharacter()
+    {
+        Debug.Log($"CharacterPlacer: PlaceCharacter() at {placementPose.position}");
+        if (characterPrefab == null)
+        {
+            Debug.LogError("CharacterPlacer: No character prefab assigned!");
+            return;
+        }
+        
+        placedCharacter = Instantiate(characterPrefab, placementPose.position, Quaternion.identity);
+        placedCharacter.transform.localScale = Vector3.one * characterScale;
+        
+        // Model correction: stands the model upright and adjusts its facing direction
+        // This is applied in the model's LOCAL space before the face-camera rotation
+        Quaternion modelCorrection = Quaternion.Euler(prefabRotationOffset);
+        
+        // Face-camera rotation: makes the model face toward the camera
+        Quaternion faceCamera = Quaternion.identity;
+        if (Camera.main != null)
+        {
+            Vector3 dirToCamera = Camera.main.transform.position - placedCharacter.transform.position;
+            dirToCamera.y = 0; // Only horizontal direction
+            if (dirToCamera.sqrMagnitude > 0.001f)
+            {
+                faceCamera = Quaternion.LookRotation(dirToCamera.normalized, Vector3.up);
+            }
+        }
+        
+        // Combined: face camera first (world), then apply model correction (local)
+        // If model faces wrong direction, adjust prefabRotationOffset.Y in inspector
+        // (try 0, 90, 180, or -90)
+        placedCharacter.transform.rotation = faceCamera * modelCorrection;
+        
+        Debug.Log($"CharacterPlacer: Character instantiated! Scale={characterScale}, Pos={placedCharacter.transform.position}, Rot={placedCharacter.transform.rotation.eulerAngles}, RotOffset={prefabRotationOffset}");
+        
+        SetPlanesVisible(false);
+        SendMessageToReactNative("character_placed");
+        
+        // Hide instruction UI
+        if (instructionCanvas != null)
+            instructionCanvas.gameObject.SetActive(false);
+        
+        // Play narration audio and auto-close when done
+        AudioController audioController = placedCharacter.GetComponent<AudioController>();
+        if (audioController == null)
+            audioController = placedCharacter.AddComponent<AudioController>();
+        
+        // Pass the dynamic audio URL from React Native (if any)
+        if (!string.IsNullOrEmpty(pendingAudioUrl))
+        {
+            Debug.Log($"CharacterPlacer: Setting dynamic audio URL on instance: {pendingAudioUrl}");
+            audioController.SetAudioUrl(pendingAudioUrl);
+        }
+        
+        audioController.onAudioComplete = () =>
+        {
+            Debug.Log("CharacterPlacer: Narration finished — notifying RN to close");
+            SendMessageToReactNative("audio_complete");
+        };
+        audioController.PlayAudio();
+    }
+    
+    public void SetCharacterPrefab(GameObject prefab)
+    {
+        characterPrefab = prefab;
+        Debug.Log($"CharacterPlacer: Prefab set to {(prefab != null ? prefab.name : "NULL")}");
+    }
+    
+    public void SetAudioUrl(string url)
+    {
+        pendingAudioUrl = url ?? "";
+        Debug.Log($"CharacterPlacer: Audio URL queued: {pendingAudioUrl}");
+    }
+    
+    public void ResetCharacter()
+    {
+        if (placedCharacter != null)
+        {
+            Destroy(placedCharacter);
+            placedCharacter = null;
+        }
+        SetPlanesVisible(true);
+    }
+    
+    private void SetPlanesVisible(bool visible)
+    {
+        if (planeManager == null) return;
+        
+        foreach (ARPlane plane in planeManager.trackables)
+        {
+            plane.gameObject.SetActive(visible);
+        }
+        if (planeManager.planePrefab != null)
+            planeManager.planePrefab.gameObject.SetActive(visible);
+    }
+    
+    private void SendMessageToReactNative(string message)
+    {
+        Debug.Log($"[Unity->RN] {message}");
+        if (UnityMessageManager.Instance != null)
+        {
+            UnityMessageManager.Instance.SendMessageToRN(message);
+        }
+        else
+        {
+            UnityMessageManagerNativeAPI.SendMessageToRN(message);
+        }
+    }
+}

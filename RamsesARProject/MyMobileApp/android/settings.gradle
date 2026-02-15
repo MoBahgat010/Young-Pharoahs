@@ -1,0 +1,16 @@
+pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+plugins { id("com.facebook.react.settings") }
+
+// Configure autolink
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex -> 
+    ex.autolinkLibrariesFromCommand() 
+}
+
+rootProject.name = 'MyMobileApp'
+include ':app'
+includeBuild('../node_modules/@react-native/gradle-plugin')
+
+// Unity integration
+include ':unityLibrary'
+project(':unityLibrary').projectDir = new File(settingsDir, './unity/builds/android/unityLibrary')
+include ':unityLibrary:xrmanifest.androidlib'
